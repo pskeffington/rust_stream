@@ -1,0 +1,13 @@
+[package]
+name = "rust-stream-core"
+description = "Reusable four-slot IP video source manager for Rust-Boy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+url = "2"

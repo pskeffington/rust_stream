@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "id": "approved-city-snapshot",
+      "label": "Approved City Snapshot",
+      "endpoint": "https://camera.example.org/approved.jpg",
+      "kind": "snapshot",
+      "scope": "public",
+      "enabled": false
+    },
+    {
+      "id": "vault-camera",
+      "label": "Vault Camera (opt in)",
+      "endpoint": "rtsps://camera.vault.example/live",
+      "kind": "rtsp",
+      "scope": "local_approved",
+      "enabled": false
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+[package]
+name = "rust-stream-demo"
+description = "Local-only, four-tile UI shell for Rust Stream"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+rust-stream-core = { path = "../rust-stream-core" }
+eframe = { version = "=0.37.0", default-features = false, features = ["glow", "x11", "wayland"] }

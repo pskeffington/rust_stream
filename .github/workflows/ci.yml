@@ -1,0 +1,26 @@
+name: Rust Stream CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check format
+        run: cargo fmt --all -- --check
+      - name: Build core
+        run: cargo check -p rust-stream-core --locked
+      - name: Test core
+        run: cargo test -p rust-stream-core --locked
+      - name: Lint core
+        run: cargo clippy -p rust-stream-core --all-targets --locked -- -D warnings
