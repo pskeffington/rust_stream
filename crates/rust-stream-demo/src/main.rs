@@ -25,6 +25,12 @@ struct Viewer {
     choices: [usize; 4],
     #[cfg(feature = "native-video")]
     custom_urls: [String; 4],
+    #[cfg(feature = "native-video")]
+    custom_names: [String; 4],
+    #[cfg(feature = "native-video")]
+    editor_open: bool,
+    #[cfg(feature = "native-video")]
+    editor_slot: usize,
 }
 impl Default for Viewer {
     fn default() -> Self {
@@ -40,6 +46,12 @@ impl Default for Viewer {
             choices: [0; 4],
             #[cfg(feature = "native-video")]
             custom_urls: std::array::from_fn(|_| String::new()),
+            #[cfg(feature = "native-video")]
+            custom_names: std::array::from_fn(|i| format!("My stream {}", i + 1)),
+            #[cfg(feature = "native-video")]
+            editor_open: false,
+            #[cfg(feature = "native-video")]
+            editor_slot: 0,
         };
         #[cfg(feature = "native-video")]
         if std::env::var("RUST_STREAM_TEST_PATTERN").as_deref() == Ok("1") {
@@ -104,7 +116,7 @@ impl Viewer {
             0 => self.previews[i].stop(),
             1 => self.previews[i].start_url("COMET TV", COMET_HLS),
             2..=5 => self.previews[i].start_hls(self.choices[i] - 2),
-            6 => self.previews[i].start_url("CUSTOM HLS", &self.custom_urls[i]),
+            6 => self.previews[i].start_url(&self.custom_names[i], &self.custom_urls[i]),
             7 => self.previews[i].start_test(),
             _ => self.previews[i].stop(),
         }
@@ -116,7 +128,7 @@ impl Viewer {
             .width(140.0)
             .selected_text(if (2..=5).contains(&self.choices[i]) {
                 configured_name(self.choices[i] - 2)
-            } else { SOURCES[self.choices[i]].to_owned() })
+            } else if self.choices[i] == 6 { self.custom_names[i].clone() } else { SOURCES[self.choices[i]].to_owned() })
             .show_ui(ui, |ui| {
                 for (n, label) in SOURCES.iter().enumerate() {
                     if (2..=5).contains(&n) {
@@ -150,6 +162,8 @@ impl Viewer {
                     });
                     if self.choices[i] == 6 {
                         ui.horizontal(|ui| {
+                            ui.label("Name");
+                            ui.text_edit_singleline(&mut self.custom_names[i]);
                             ui.label("HTTPS HLS URL");
                             ui.text_edit_singleline(&mut self.custom_urls[i]);
                             if ui.button("Load").clicked() {
@@ -164,6 +178,37 @@ impl Viewer {
                 ui.small("A validated playlist is not proof of live video or permission to rebroadcast.");
             });
         self.settings = open;
+    }
+    #[cfg(feature = "native-video")]
+    fn inline_stream_editor(&mut self, ui: &mut egui::Ui) {
+        if !self.editor_open { return; }
+        ui.horizontal(|ui| {
+            ui.label("BOX");
+            egui::ComboBox::from_id_salt("inline-editor-slot")
+                .selected_text(format!("{}", self.editor_slot + 1))
+                .show_ui(ui, |ui| {
+                    for i in 0..4 {
+                        ui.selectable_value(&mut self.editor_slot, i, format!("{}", i + 1));
+                    }
+                });
+            ui.label("Name");
+            ui.add(egui::TextEdit::singleline(&mut self.custom_names[self.editor_slot]).desired_width(120.0));
+            ui.label("Stream URL");
+            let entered = ui.add(egui::TextEdit::singleline(&mut self.custom_urls[self.editor_slot])
+                .hint_text("https://publisher.example/live.m3u8")
+                .desired_width(240.0));
+            let load = ui.button("PLAY").clicked() ||
+                (entered.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)));
+            if load {
+                let i = self.editor_slot;
+                if !self.custom_names[i].trim().is_empty() && !self.custom_urls[i].trim().is_empty() {
+                    self.choices[i] = 6;
+                    self.apply_source(i);
+                }
+            }
+            if ui.small_button("X").clicked() { self.editor_open = false; }
+        });
+        ui.small("Trusted HTTPS HLS only. Playback starts in the selected box; unsupported or invalid links stay offline.");
     }
     fn draw_slot(&mut self, ui: &mut egui::Ui, index: usize, size: Vec2) -> bool {
         let (rect, response) = ui.allocate_exact_size(size, Sense::click());
@@ -226,6 +271,10 @@ impl Viewer {
             {
                 ui.label("BOX 1:");
                 self.source_picker(ui, 0);
+                if ui.button("+ STREAM").clicked() {
+                    self.editor_open = !self.editor_open;
+                    self.editor_slot = self.quad.focused().unwrap_or(0);
+                }
                 if ui.button("STREAMS").clicked() {
                     self.settings = true;
                 }
@@ -291,6 +340,8 @@ impl eframe::App for Viewer {
         }
         egui::CentralPanel::default().show(ui, |ui| {
             self.controls(ui);
+            #[cfg(feature = "native-video")]
+            self.inline_stream_editor(ui);
             #[cfg(feature = "native-video")]
             if self.section == Section::News && self.choices.iter().all(|choice| *choice == 0) {
                 ui.small("No news video configured. Add named HTTPS HLS feeds in your launch environment, or use STREAMS to load a custom feed.");
