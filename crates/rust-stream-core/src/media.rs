@@ -25,7 +25,10 @@ impl FeedCollection {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ViewMode { Quad, Focused(usize) }
+pub enum ViewMode {
+    Quad,
+    Focused(usize),
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MediaView {
@@ -35,13 +38,20 @@ pub struct MediaView {
 
 impl Default for MediaView {
     fn default() -> Self {
-        Self { collection: FeedCollection::Security, mode: ViewMode::Quad }
+        Self {
+            collection: FeedCollection::Security,
+            mode: ViewMode::Quad,
+        }
     }
 }
 
 impl MediaView {
-    pub const fn collection(&self) -> FeedCollection { self.collection }
-    pub const fn mode(&self) -> ViewMode { self.mode }
+    pub const fn collection(&self) -> FeedCollection {
+        self.collection
+    }
+    pub const fn mode(&self) -> ViewMode {
+        self.mode
+    }
 
     /// Switching collections always returns to the four-tile overview.
     pub fn select_collection(&mut self, collection: FeedCollection) {
@@ -50,12 +60,16 @@ impl MediaView {
     }
 
     pub fn focus(&mut self, slot: usize) -> Result<(), &'static str> {
-        if slot >= 4 { return Err("feed slot must be 0..3"); }
+        if slot >= 4 {
+            return Err("feed slot must be 0..3");
+        }
         self.mode = ViewMode::Focused(slot);
         Ok(())
     }
 
-    pub fn back_to_quad(&mut self) { self.mode = ViewMode::Quad; }
+    pub fn back_to_quad(&mut self) {
+        self.mode = ViewMode::Quad;
+    }
 }
 
 #[cfg(test)]

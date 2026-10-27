@@ -1,13 +1,17 @@
 //! Curated *candidate* live news video streams. Never describe these as verified live
 //! without runtime HLS + decoded-frame validation and source permission review.
+use crate::is_non_global_ip;
 use serde::Serialize;
 use std::net::IpAddr;
 use url::{Host, Url};
-use crate::is_non_global_ip;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CandidateStatus { Unverified, Approved, Retired }
+pub enum CandidateStatus {
+    Unverified,
+    Approved,
+    Retired,
+}
 
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct LiveVideoCandidate {
@@ -60,19 +64,43 @@ pub fn validate_direct_hls_url(input: &str) -> Result<(), VideoEndpointError> {
     if !url.username().is_empty() || url.password().is_some() || url.fragment().is_some() {
         return Err(VideoEndpointError::UnsafeUrl);
     }
-    let host = url.host_str().unwrap_or_default().trim_end_matches('.').to_ascii_lowercase();
+    let host = url
+        .host_str()
+        .unwrap_or_default()
+        .trim_end_matches('.')
+        .to_ascii_lowercase();
     match url.host() {
-        Some(Host::Ipv4(ip)) if is_non_global_ip(IpAddr::V4(ip)) => return Err(VideoEndpointError::NonGlobalAddress),
-        Some(Host::Ipv6(ip)) if is_non_global_ip(IpAddr::V6(ip)) => return Err(VideoEndpointError::NonGlobalAddress),
-        Some(Host::Domain(domain)) if domain.eq_ignore_ascii_case("localhost") || domain.to_ascii_lowercase().ends_with(".localhost") => return Err(VideoEndpointError::NonGlobalAddress),
+        Some(Host::Ipv4(ip)) if is_non_global_ip(IpAddr::V4(ip)) => {
+            return Err(VideoEndpointError::NonGlobalAddress);
+        }
+        Some(Host::Ipv6(ip)) if is_non_global_ip(IpAddr::V6(ip)) => {
+            return Err(VideoEndpointError::NonGlobalAddress);
+        }
+        Some(Host::Domain(domain))
+            if domain.eq_ignore_ascii_case("localhost")
+                || domain.to_ascii_lowercase().ends_with(".localhost") =>
+        {
+            return Err(VideoEndpointError::NonGlobalAddress);
+        }
         _ => {}
     }
-    if ["youtube.com", "youtu.be", "youtube-nocookie.com", "googlevideo.com", "twitch.tv", "vimeo.com"]
-        .iter().any(|domain| host == *domain || host.ends_with(&format!(".{domain}"))) {
+    if [
+        "youtube.com",
+        "youtu.be",
+        "youtube-nocookie.com",
+        "googlevideo.com",
+        "twitch.tv",
+        "vimeo.com",
+    ]
+    .iter()
+    .any(|domain| host == *domain || host.ends_with(&format!(".{domain}")))
+    {
         return Err(VideoEndpointError::EmbeddedPlatform);
     }
     let path = url.path().to_ascii_lowercase();
-    if !path.ends_with(".m3u8") { return Err(VideoEndpointError::NotDirectHls); }
+    if !path.ends_with(".m3u8") {
+        return Err(VideoEndpointError::NotDirectHls);
+    }
     Ok(())
 }
 
@@ -94,7 +122,11 @@ mod tests {
             "https://[::1]/live.m3u8",
             "https://camera.localhost/live.m3u8",
         ] {
-            assert_eq!(validate_direct_hls_url(endpoint), Err(VideoEndpointError::NonGlobalAddress), "{endpoint}");
+            assert_eq!(
+                validate_direct_hls_url(endpoint),
+                Err(VideoEndpointError::NonGlobalAddress),
+                "{endpoint}"
+            );
         }
     }
     #[test]

@@ -2,7 +2,7 @@
 //! This updater does not approve or play any discovered media.
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
-use rust_stream_core::{import_iptv_org, SourcePolicy, CHANNELS_URL, STREAMS_URL};
+use rust_stream_core::{CHANNELS_URL, STREAMS_URL, SourcePolicy, import_iptv_org};
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{Read, Write};
@@ -12,9 +12,16 @@ use std::time::Duration;
 const MAX_CHANNELS: usize = 12 * 1024 * 1024;
 const MAX_STREAMS: usize = 24 * 1024 * 1024;
 
-fn fetch_bounded(client: &Client, url: &str, limit: usize) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+fn fetch_bounded(
+    client: &Client,
+    url: &str,
+    limit: usize,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let mut response = client.get(url).send()?.error_for_status()?;
-    if response.content_length().is_some_and(|size| size > limit as u64) {
+    if response
+        .content_length()
+        .is_some_and(|size| size > limit as u64)
+    {
         return Err("catalog exceeds configured size limit".into());
     }
     let mut output = Vec::new();
@@ -37,7 +44,9 @@ fn atomic_write(path: &Path, payload: &[u8]) -> Result<(), Box<dyn std::error::E
         fs::rename(&temporary, path)?;
         Ok::<(), std::io::Error>(())
     })();
-    if result.is_err() { let _ = fs::remove_file(&temporary); }
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
     result?;
     Ok(())
 }
@@ -45,7 +54,9 @@ fn atomic_write(path: &Path, payload: &[u8]) -> Result<(), Box<dyn std::error::E
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 3 || args[1] != "--cache-dir" {
-        return Err("usage: cargo run -p rust-stream-catalog -- --cache-dir ./data/iptv-org".into());
+        return Err(
+            "usage: cargo run -p rust-stream-catalog -- --cache-dir ./data/iptv-org".into(),
+        );
     }
     let path = Path::new(&args[2]);
     let client = Client::builder()
@@ -64,7 +75,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let discovered = import_iptv_org(
         channels_text,
         streams_text,
-        &SourcePolicy { allowed_hosts: BTreeSet::new(), ..Default::default() },
+        &SourcePolicy {
+            allowed_hosts: BTreeSet::new(),
+            ..Default::default()
+        },
         &["US".to_string()].into(),
     )?;
     // Zero candidates is intentional: runtime operators must first approve host policies.
@@ -73,7 +87,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     atomic_write(&path.join("streams.json"), &streams)?;
     println!(
         "Cached IPTV-org discovery JSON. US auto-approved sources: {}; skipped: {}. Playback not enabled.",
-        discovered.candidates.len(), discovered.skipped
+        discovered.candidates.len(),
+        discovered.skipped
     );
     Ok(())
 }
