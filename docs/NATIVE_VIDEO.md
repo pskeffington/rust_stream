@@ -10,9 +10,7 @@ On Debian/Ubuntu, install `pkg-config libgstreamer1.0-dev libgstreamer-plugins-b
 RUST_STREAM_TEST_PATTERN=1 cargo run -p rust-stream-demo --features native-video
 ```
 
-This starts four network-free GStreamer patterns in the native window. Otherwise players start offline. In **SOURCES**, independently select synthetic video or configured HLS 1–4, then **Apply / Restart**. **Remove** stops and clears that slot. **STOP ALL** clears textures and cancels all sessions. Click a video to enlarge it; **GRID** returns to the wall. Category tabs currently share the same operator wall; provider integration and category-specific source catalogs are pending.
-
-For trusted HLS, set `RUST_STREAM_HLS_URL_1` through `_4` before launch. `RUST_STREAM_HLS_URL` remains a fallback for channel 1. No URL or credentials are displayed in the UI. No source is scraped or auto-approved.
+The test-pattern command starts four network-free video patterns. Without that flag the player opens NEWS first and attempts explicitly configured or saved HTTPS HLS feeds. Use **+ STREAM** to add a named stream in the player; **STREAMS** manages all four slots. Click a tile to focus it, and **GRID** to return to the wall. No public broadcaster is considered verified just because its URL is configured.
 
 ## Startup NEWS and channel naming
 
@@ -32,13 +30,11 @@ The header provides a Box 1 quick picker and a STREAMS window for managing all f
 
 Click **+ STREAM** in the player's main toolbar. Select Box 1-4, provide a human-readable **Name**, enter a trusted HTTPS HLS stream URL and click **PLAY** (or press Enter in the URL field). The player uses the supplied name for the video overlay and source selector. Clicking a video to focus it before opening + STREAM preselects that box. Custom names and URLs are saved locally in `~/.config/rust-stream/streams.json` (or `$XDG_CONFIG_HOME/rust-stream/streams.json`), with restrictive file permissions on Unix. PLAY saves the entry and starts playback. STREAMS offers Save + Play and Clear. Saved entries are restored on launch; NEWS prefers an explicitly configured environment feed for each box, then its saved custom stream. The CUSTOM tab starts saved custom streams. There is no public URL discovery. A successful click is not proof of a decoded stream: inspect the tile status and frames.
 
-## Primary feeds and custom HLS selection
+## Primary feeds and source selection
 
-The demo exposes a compact **PRIMARY** selector in the top toolbar (Box 1), and a **STREAMS** window for all four boxes. Switching a selection starts that feed immediately. The available options are Off, COMET TV, Configured 1-4 (the existing environment variables), Custom HLS, and Test pattern. COMET TV is attempted in Box 1 on startup, but is a **candidate** rather than a confirmed operational source; check decoded frames and audio on the operator's network before describing it as live.
+The header provides the **BOX 1** quick selector. **STREAMS** opens all four selectors, where users can restart, save, play or clear a custom feed. The available options are Off, COMET TV (candidate), four operator-configured environment feeds, named custom HLS, and Test pattern. Custom names and URLs persist locally; do not include credentials or private network addresses. Changing sections currently resets active playback assignments to that section's defaults.
 
-To add an unlisted stream: open **STREAMS**, choose **Custom HLS** for a box, enter a trusted/authorized HTTPS `.m3u8` URL, and press **Load**. The URL is deliberately session-only; it is not stored in the repository or any log by this UI. Invalid or missing URLs leave the slot offline. The current GStreamer backend still does not enforce nested HLS request policy, so this UI is for trusted operator-managed sources only, not a public arbitrary-URL submission service. Embedded credentials and local/private URLs remain disallowed.
-
-The source picker changes source selection independently for each box. This UI update does not implement or prove audio arbitration; only one-audio-owner enforcement remains a separate integration requirement, including confirmation with real audio-bearing live feeds.
+COMET is selected when opening FREE TV, but live public-network playback and publisher terms require separate verification. The media backend currently does not enforce the complete nested HLS request graph, so the URL editor is for trusted operator-selected feeds, not untrusted remote submissions.
 
 ## Decoder and worker lifecycle
 
@@ -56,7 +52,7 @@ Decoded frames are capped; compressed buffers and hardware decoder allocations a
 
 ## Trust boundary
 
-Definition-time URL checks are not SSRF protection. GStreamer controls DNS, sockets, redirected requests, variant playlists, keys and media segments. This backend cannot enforce destination restrictions on that entire request graph. **Only operator-configured publishers and child resources already trusted and authorized may be used.** No arbitrary URL editor, public feed auto-connect, private camera or credential support is provided. An operator environment variable is a trust decision, not proof of licensing.
+Definition-time URL checks are not SSRF protection. GStreamer controls DNS, sockets, redirected requests, variant playlists, keys and media segments. This backend cannot enforce destination restrictions on that entire request graph. **Only operator-configured publishers and child resources already trusted and authorized may be used.** The in-player custom URL editor is intended only for trusted operator-selected public HTTPS HLS streams; public untrusted submissions, private cameras, and credential support are not provided. An operator environment variable is a trust decision, not proof of licensing.
 
 The test-only HTTP server binds loopback and serves only embedded, owned fixtures. Its private helper bypasses production URL selection only inside `#[cfg(test)]`; the public HLS constructor continues to reject loopback/private literals. No network policy is weakened to run the tests. Diagnostic `GST_DEBUG` output can contain URLs and should be handled accordingly.
 
