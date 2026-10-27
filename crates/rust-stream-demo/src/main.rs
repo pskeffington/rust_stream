@@ -2,6 +2,8 @@
 use eframe::egui::{self, Align2, Color32, FontId, Sense, Stroke, StrokeKind, Vec2};
 use rust_stream_core::Quad;
 #[cfg(feature = "native-video")]
+use rust_stream_core::LIVE_NEWS_CANDIDATES;
+#[cfg(feature = "native-video")]
 mod native_preview;
 #[cfg(feature = "native-video")]
 use native_preview::NativePreview;
@@ -70,18 +72,30 @@ impl Viewer {
                 for i in 0..4 {
                     ui.horizontal(|ui| {
                         ui.label(format!("{}", i + 1));
+                        let selected = if self.choices[i] < SOURCES.len() {
+                            SOURCES[self.choices[i]].to_string()
+                        } else {
+                            LIVE_NEWS_CANDIDATES
+                                .get(self.choices[i] - SOURCES.len())
+                                .map(|c| c.name.to_string())
+                                .unwrap_or_else(|| "Unknown source".into())
+                        };
                         egui::ComboBox::from_id_salt(("source", i))
-                            .selected_text(SOURCES[self.choices[i]])
+                            .selected_text(selected)
                             .show_ui(ui, |ui| {
                                 for (n, label) in SOURCES.iter().enumerate() {
                                     ui.selectable_value(&mut self.choices[i], n, *label);
+                                }
+                                for (n, candidate) in LIVE_NEWS_CANDIDATES.iter().enumerate() {
+                                    ui.selectable_value(&mut self.choices[i], SOURCES.len() + n, candidate.name);
                                 }
                             });
                         if ui.button("Apply / Restart").clicked() {
                             match self.choices[i] {
                                 0 => self.previews[i].stop(),
                                 1 => self.previews[i].start_test(),
-                                n => self.previews[i].start_hls(n - 2),
+                                n if n < SOURCES.len() => self.previews[i].start_hls(n - 2),
+                                n => self.previews[i].start_candidate(n - SOURCES.len()),
                             }
                         }
                         if ui.button("Remove").clicked() {
@@ -91,6 +105,11 @@ impl Viewer {
                     });
                 }
                 ui.label("Set RUST_STREAM_HLS_URL_1 through _4 before launch.");
+                ui.label("Curated candidates are unverified and OFF by default.");
+                ui.label("Approve exact candidate IDs in RUST_STREAM_APPROVED_FEED_IDS (comma-separated).");
+                for candidate in LIVE_NEWS_CANDIDATES {
+                    ui.label(format!("{}: {}", candidate.name, candidate.id));
+                }
                 ui.label("DNS, redirect and nested HLS request enforcement is still pending.");
             });
     }
