@@ -7,6 +7,7 @@ mod media;
 mod free_tv;
 mod hls;
 mod hls_gate;
+mod iptv_org;
 mod live_video;
 mod quad;
 mod retry;
@@ -14,6 +15,7 @@ mod source;
 
 pub use chart::{parse_chart_cameras, ChartCamera, ChartError};
 pub use catalog::{DiscoveryState, FeedHealth, FeedRecord, Provider, PROVIDERS};
+pub use iptv_org::{import_iptv_org, IptvCandidate, IptvImport, IptvImportError, CHANNELS_URL, STREAMS_URL};
 pub use hls_gate::{preflight_hls,HlsHostPolicy,HlsPolicyError};
 pub use hls::{parse_hls, HlsError, HlsManifest};
 pub use live_video::{validate_direct_hls_url, CandidateStatus, LiveVideoCandidate, VideoEndpointError, LIVE_NEWS_CANDIDATES};
