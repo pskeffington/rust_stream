@@ -7,6 +7,8 @@ use rust_stream_core::LIVE_NEWS_CANDIDATES;
 mod native_preview;
 #[cfg(feature = "native-video")]
 use native_preview::NativePreview;
+#[cfg(feature = "native-video")]
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Section {
@@ -22,6 +24,8 @@ struct Viewer {
     #[cfg(feature = "native-video")]
     previews: [NativePreview; 4],
     #[cfg(feature = "native-video")]
+    audio_owner: Arc<AtomicUsize>,
+    #[cfg(feature = "native-video")]
     settings: bool,
     #[cfg(feature = "native-video")]
     choices: [usize; 4],
@@ -29,11 +33,15 @@ struct Viewer {
 impl Default for Viewer {
     fn default() -> Self {
         #[allow(unused_mut)]
+        #[cfg(feature = "native-video")]
+        let audio_owner = Arc::new(AtomicUsize::new(0));
         let mut viewer = Self {
             quad: Quad::default(),
             section: Section::Security,
             #[cfg(feature = "native-video")]
-            previews: std::array::from_fn(NativePreview::new),
+            previews: std::array::from_fn(|i| NativePreview::new(i, audio_owner.clone())),
+            #[cfg(feature = "native-video")]
+            audio_owner,
             #[cfg(feature = "native-video")]
             settings: false,
             #[cfg(feature = "native-video")]
@@ -174,6 +182,14 @@ impl Viewer {
             {
                 if ui.button("SOURCES").clicked() {
                     self.settings = true;
+                }
+                ui.separator();
+                ui.label("AUDIO");
+                for i in 0..4 {
+                    let selected = self.audio_owner.load(Ordering::SeqCst) == i;
+                    if ui.selectable_label(selected, format!("{}", i + 1)).clicked() {
+                        self.audio_owner.store(i, Ordering::SeqCst);
+                    }
                 }
                 if ui.button("STOP ALL").clicked() {
                     for p in &mut self.previews {

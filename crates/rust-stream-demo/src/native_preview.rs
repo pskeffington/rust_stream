@@ -1,7 +1,7 @@
 //! Egui adapter for one independently controlled native player.
 use eframe::egui::{self, ColorImage, TextureHandle, TextureOptions};
 use rust_stream_core::{GstBackend, Playback, PlaybackStatus, Source, SourceKind, SourceScope};
-use std::sync::Arc;
+use std::sync::{Arc, atomic::AtomicUsize};
 use std::time::Duration;
 
 pub struct NativePreview {
@@ -11,9 +11,10 @@ pub struct NativePreview {
     pub label: String,
     pub frames: u64,
     id: usize,
+    audio_owner: Arc<AtomicUsize>,
 }
 impl NativePreview {
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: usize, audio_owner: Arc<AtomicUsize>) -> Self {
         Self {
             player: Playback::default(),
             texture: None,
@@ -21,6 +22,7 @@ impl NativePreview {
             label: format!("FEED {:02}", id + 1),
             frames: 0,
             id,
+            audio_owner,
         }
     }
     pub fn start_test(&mut self) {
@@ -54,6 +56,7 @@ impl NativePreview {
         };
         match GstBackend::trusted_hls(source.clone()) {
             Ok(backend) => {
+                let backend = backend.with_audio_owner(self.audio_owner.clone(), self.id);
                 self.label = source.label.clone();
                 self.player.start(Arc::new(backend), source);
             }
@@ -88,7 +91,10 @@ impl NativePreview {
             enabled: true,
         };
         match GstBackend::trusted_hls(source.clone()) {
-            Ok(backend) => self.player.start(Arc::new(backend), source),
+            Ok(backend) => {
+                let backend = backend.with_audio_owner(self.audio_owner.clone(), self.id);
+                self.player.start(Arc::new(backend), source);
+            },
             Err(_) => self.status = "INVALID CANDIDATE HLS CONFIGURATION".into(),
         }
     }

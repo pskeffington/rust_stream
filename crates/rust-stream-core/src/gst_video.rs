@@ -2,6 +2,7 @@
 use crate::{FrameRgba, MediaBackend, MediaSession, Source, SourceKind, SourceScope, StreamError};
 use gst::prelude::*;
 use gst_video::prelude::*;
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 use gstreamer as gst;
 use gstreamer_app as gst_app;
 use gstreamer_video as gst_video;
@@ -12,6 +13,7 @@ use gstreamer_video as gst_video;
 pub struct GstBackend {
     source: Source,
     pattern: Option<&'static str>,
+    audio_owner: Option<(Arc<AtomicUsize>, usize)>,
 }
 impl GstBackend {
     pub fn trusted_hls(source: Source) -> Result<Self, StreamError> {
@@ -37,6 +39,7 @@ impl GstBackend {
         Ok(Self {
             source,
             pattern: None,
+            audio_owner: None,
         })
     }
     /// Built-in moving patterns exercise the same appsink/render path without network access.
@@ -51,7 +54,14 @@ impl GstBackend {
                 enabled: true,
             },
             pattern: Some(["smpte", "ball", "snow", "smpte100"][index % 4]),
+            audio_owner: None,
         }
+    }
+    /// Configure a shared audio selector. Audio is emitted only when this slot
+    /// is the active owner; other video pipelines continue decoding silently.
+    pub fn with_audio_owner(mut self, owner: Arc<AtomicUsize>, slot: usize) -> Self {
+        self.audio_owner = Some((owner, slot));
+        self
     }
     pub fn source(&self) -> &Source {
         &self.source
@@ -62,7 +72,7 @@ impl MediaBackend for GstBackend {
         if source != &self.source {
             return Err(StreamError::MediaBackend);
         }
-        open_pipeline(self.pattern, &source.endpoint)
+        open_pipeline(self.pattern, &source.endpoint, self.audio_owner.clone())
     }
 }
 struct GstSession {
@@ -82,6 +92,7 @@ fn element(name: &str) -> Result<gst::Element, StreamError> {
 fn open_pipeline(
     pattern: Option<&'static str>,
     uri: &str,
+    audio_owner: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<Box<dyn MediaSession>, StreamError> {
     gst::init().map_err(|_| StreamError::MediaBackend)?;
     let pipeline = gst::Pipeline::new();
@@ -94,19 +105,16 @@ fn open_pipeline(
     } else {
         gst::ElementFactory::make("uridecodebin3")
             .property("uri", uri)
-            // Discard audio rather than create an unconsumed audio branch.
-            .property(
-                "caps",
-                gst::Caps::builder("video/x-raw").any_features().build(),
-            )
             .build()
             .map_err(|_| StreamError::MediaBackend)?
     };
     if pattern.is_none() {
-        decoder.connect("select-stream", false, |values| {
+        let decode_audio = audio_owner.is_some();
+        decoder.connect("select-stream", false, move |values| {
             let video = values[2]
                 .get::<gst::Stream>()
-                .map(|stream| stream.stream_type().contains(gst::StreamType::VIDEO))
+                .map(|stream| stream.stream_type().contains(gst::StreamType::VIDEO)
+                    || (decode_audio && stream.stream_type().contains(gst::StreamType::AUDIO)))
                 .unwrap_or(false);
             Some(i32::from(video).to_value())
         });
@@ -151,6 +159,30 @@ fn open_pipeline(
         .map_err(|_| StreamError::MediaBackend)?;
     gst::Element::link_many([&converter, &scaler, &rate, session.sink.upcast_ref()])
         .map_err(|_| StreamError::MediaBackend)?;
+    // Install the audio branch only on explicitly audio-capable sessions.
+    // A pad probe checks the shared owner for *every audio buffer*: non-owner
+    // pipelines cannot emit audio even while the selected slot changes.
+    let audio_target = if let Some((owner, slot)) = audio_owner {
+        let queue = element("queue")?;
+        let audio_convert = element("audioconvert")?;
+        let audio_resample = element("audioresample")?;
+        let audio_sink = element("autoaudiosink")?;
+        session.pipeline.add_many([&queue, &audio_convert, &audio_resample, &audio_sink])
+            .map_err(|_| StreamError::MediaBackend)?;
+        gst::Element::link_many([&queue, &audio_convert, &audio_resample, &audio_sink])
+            .map_err(|_| StreamError::MediaBackend)?;
+        let gate = audio_convert.static_pad("src").ok_or(StreamError::MediaBackend)?;
+        gate.add_probe(gst::PadProbeType::BUFFER, move |_, _| {
+            if owner.load(Ordering::SeqCst) == slot {
+                gst::PadProbeReturn::Ok
+            } else {
+                gst::PadProbeReturn::Drop
+            }
+        });
+        Some(queue.static_pad("sink").ok_or(StreamError::MediaBackend)?)
+    } else {
+        None
+    };
     if pattern.is_some() {
         decoder
             .link(&converter)
@@ -161,12 +193,16 @@ fn open_pipeline(
             .ok_or(StreamError::MediaBackend)?;
         decoder.connect_pad_added(move |_, pad| {
             let caps = pad.current_caps().unwrap_or_else(|| pad.query_caps(None));
-            if caps
-                .structure(0)
-                .is_some_and(|s| s.name().starts_with("video/"))
-                && !target.is_linked()
-            {
-                let _ = pad.link(&target);
+            if let Some(structure) = caps.structure(0) {
+                if structure.name().starts_with("video/") && !target.is_linked() {
+                    let _ = pad.link(&target);
+                } else if structure.name().starts_with("audio/") {
+                    if let Some(audio_pad) = &audio_target {
+                        if !audio_pad.is_linked() {
+                            let _ = pad.link(audio_pad);
+                        }
+                    }
+                }
             }
         });
     }
