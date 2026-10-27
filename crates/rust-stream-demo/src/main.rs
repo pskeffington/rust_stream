@@ -41,6 +41,18 @@ impl eframe::App for Viewer {
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.strong("RUST STREAM  /  QUAD VIEW");
+                ui.menu_button("FREE TV LINKS", |ui| {
+                    ui.label("EXTERNAL VIEWING SITES - NOT NATIVE IP FEEDS");
+                    for (name, url) in [
+                        ("Pluto TV", "https://www.pluto.tv/"),
+                        ("Plex Live TV", "https://www.plex.tv/watch-free-tv/"),
+                        ("The Roku Channel", "https://therokuchannel.roku.com/"),
+                        ("Tubi", "https://tubitv.com/"),
+                        ("Samsung TV Plus", "https://www.samsungtvplus.com/"),
+                    ] {
+                        ui.hyperlink_to(name, url);
+                    }
+                });
                 if self.quad.focused().is_some() && ui.button("RETURN TO GRID").clicked() {
                     let _ = self.quad.set_focus(None);
                 }
