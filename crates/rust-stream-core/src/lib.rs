@@ -4,12 +4,14 @@
 mod chart;
 mod catalog;
 mod media;
+mod news;
 mod quad;
 mod retry;
 mod source;
 
 pub use chart::{parse_chart_cameras, ChartCamera, ChartError};
 pub use catalog::{DiscoveryState, FeedHealth, FeedRecord, Provider, PROVIDERS};
+pub use news::{parse_news, NewsError, NewsItem, NewsKind, NewsProvider, NEWS_PROVIDERS};
 pub use media::{FeedCollection, MediaView, ViewMode};
 pub use quad::{FrameRgba, MediaBackend, MediaSession, Quad, Slot, SlotStatus, StreamError, QUAD_SLOTS};
 pub use retry::RetryBackoff;
