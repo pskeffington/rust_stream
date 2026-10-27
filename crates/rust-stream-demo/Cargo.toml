@@ -9,3 +9,7 @@ repository.workspace = true
 [dependencies]
 rust-stream-core = { path = "../rust-stream-core" }
 eframe = { version = "=0.37.0", default-features = false, features = ["glow", "x11", "wayland"] }
+
+[features]
+default = []
+native-video = ["rust-stream-core/native-video"]
