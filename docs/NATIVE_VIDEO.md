@@ -51,3 +51,15 @@ Validated on macOS arm64, Rust 1.99.1, eframe/egui 0.37.0, GStreamer 1.28.8 (202
 The HLS fixture validates decoder behavior over local HTTP; it is not a test of public HTTPS certificates, broadcaster authorization or real live-network recovery. No public broadcaster is claimed operational. Linux native CI is configured but its result must be read from the associated workflow. Raspberry Pi, Rust-Boy runtime embedding, long-duration resource testing and production network enforcement remain unvalidated.
 
 Next priority: constrain every GStreamer HLS network request (or introduce a policy-enforcing fetch path), then validate an explicitly authorized live HTTPS publisher end to end and curate approved channels.
+
+## Curated live news feed selection (experimental)
+
+The native SOURCES menu now includes the two unverified direct-HLS news candidates already tracked in `live_video.rs` (Al Jazeera English and DW English), in addition to synthetic streams and the four operator HLS slots. These candidates are **disabled unless explicitly approved by ID**. Select a candidate in any slot and use Apply / Restart. Approval uses the comma-separated `RUST_STREAM_APPROVED_FEED_IDS` environment variable. For example, after reviewing the publisher's permission and all HLS child resources:
+
+```sh
+RUST_STREAM_APPROVED_FEED_IDS=aljazeera-english-candidate cargo run -p rust-stream-demo --features native-video
+```
+
+This example is an opt-in configuration, **not** a claim that the stream is available, safe, licensed for redistribution, or successfully decoded. Candidate IDs and publisher evidence are in `crates/rust-stream-core/src/live_video.rs`. Do not ship auto-approved feeds. Source URLs and child-resource behavior can change. Explicit approval does not resolve DNS rebinding, nested-request or redirect safety, and current GStreamer network handling is not a policy-enforcing transport. An operator should only use these feeds in an environment where the publisher and child requests are trusted.
+
+The next verification gate must test public HTTPS manifest retrieval, variants, segments, advancing frames, stability, authorization and regional restrictions. Record status as unavailable, manifest reachable, decoded, or explicitly authorized independently; none of these states implies the others.
