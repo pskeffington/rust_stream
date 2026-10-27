@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "enabled_by_default": false,
+  "providers": [
+    {
+      "id": "md-chart",
+      "region": "Maryland",
+      "discovery": "https://chart.maryland.gov/DataFeeds/GetDataFeeds",
+      "status": "documented-not-tested",
+      "media_field": "publicVideoURL"
+    },
+    {
+      "id": "ny-511",
+      "region": "New York",
+      "discovery": "https://prod-ny.ibi511.com/developers/help",
+      "status": "requires-developer-key",
+      "media_field": "VideoUrl"
+    },
+    {
+      "id": "ca-caltrans",
+      "region": "California",
+      "discovery": "https://publish.data.ca.gov/dataset/closed-circuit-television",
+      "status": "metadata-only"
+    },
+    {
+      "id": "dc-ddot",
+      "region": "District of Columbia",
+      "discovery": "https://maps2.dcgis.dc.gov/dcgis/rest/services/DDOT/TrafficOperations/FeatureServer/layers",
+      "status": "metadata-only"
+    },
+    {
+      "id": "ma-massdot",
+      "region": "Massachusetts",
+      "discovery": "https://gisstg.massdot.state.ma.us/rh/rest/services/Hosted/MassDOT_Traffic_Cams/FeatureServer",
+      "status": "metadata-only"
+    }
+  ]
+}
