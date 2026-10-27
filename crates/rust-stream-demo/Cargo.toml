@@ -1,14 +1,15 @@
 [package]
 name = "rust-stream-demo"
-description = "Local-only, four-tile UI shell for Rust Stream"
+description = "Compact four-slot native video wall for Rust Stream"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+rust-version = "1.95"
 
 [dependencies]
 rust-stream-core = { path = "../rust-stream-core" }
-eframe = { version = "=0.37.0", default-features = false, features = ["glow", "x11", "wayland"] }
+eframe = { version = "=0.37.0", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
 
 [features]
 default = []

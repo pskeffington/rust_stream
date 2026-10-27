@@ -27,9 +27,9 @@ Rust-Boy Settings > Media Feeds: add/remove sources, choose category, select one
 Location preference is universal and not re-entered on this view. Traffic collection can use location-to-county/nearby DOT routing from the existing Rust-Boy location provider, and choose the nearest verified live direct feed when there is an active one. Never claim a DOT feed is live without frame/heartbeat evidence; fallback to known permitted static road images if appropriate.
 
 ## Adapter boundary
-- rust-stream-core: FeedCollection and MediaView selection, four slots, Source and backend traits.
+- rust-stream-core: FeedCollection and MediaView selection, four slots, Source/backend/session traits, and reusable Playback workers.
 - Rust-Boy integration adapter: maps existing authentication, role grants, settings, location and feed catalogs into source assignments.
-- rust-stream-gst (future): native per-feed media pipelines. Browser iframe/video and YouTube embeds are legacy-only and must not become the new core path.
+- Native pipelines currently live behind rust-stream-core/native-video. The demo owns its egui textures; extracting a reusable egui adapter and testing it in Rust-Boy remain pending. Browser iframe/video and YouTube embeds are legacy-only and must not become the new core path.
 - Security: approval per vault camera; deny internal/LAN targets until provisioned; network-level redirect, DNS and playlist protections; revocation must tear down the worker.
 
 ## Acceptance gates
@@ -40,3 +40,21 @@ Location preference is universal and not re-entered on this view. Traffic collec
 5. Display fits handheld in 2x2/focus, zero scroll.
 6. Offline use shows last-known metadata without falsely showing archived video as LIVE.
 7. Existing Security camera wall continues to function until replacement is ready.
+
+## Current reusable playback API
+
+A host can use the core without starting the desktop demo:
+
+```rust
+use std::sync::Arc;
+use rust_stream_core::{GstBackend, Playback, Source};
+
+fn start_approved(source: Source) -> Result<Playback, rust_stream_core::StreamError> {
+    let backend = Arc::new(GstBackend::trusted_hls(source.clone())?);
+    let mut player = Playback::default();
+    player.start(backend, source);
+    Ok(player)
+}
+```
+
+Poll `player.poll()` during host updates; upload its optional RGBA frame into the host renderer and display its status. Call `stop()` on removal/revocation; drop the player during shutdown to join the worker. Source replacement invalidates the previous generation. See [native lifecycle and trust limitations](NATIVE_VIDEO.md) before enabling any endpoint. This API and the standalone demo have been tested; an actual Rust-Boy integration has not.
