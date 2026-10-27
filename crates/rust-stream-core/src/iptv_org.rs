@@ -137,7 +137,7 @@ mod tests {
         let imported = import_iptv_org(CHANNELS, streams, &policy(), &BTreeSet::new()).unwrap();
         assert_eq!(imported.candidates.len(), 1);
         assert!(!imported.candidates[0].source.enabled);
-        assert_eq!(imported.candidates[0].categories, ["news"]);
+        assert_eq!(imported.candidates[0].categories, vec![String::from("news")]);
     }
     #[test]
     fn rejects_unknown_private_unapproved_and_external_player_sources() {
