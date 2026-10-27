@@ -30,6 +30,24 @@ impl NativePreview {
         self.texture = None;
         self.player.start(Arc::new(backend), source);
     }
+    pub fn start_url(&mut self, label: &str, endpoint: &str) {
+        self.stop();
+        let source = Source {
+            id: format!("selected-hls-{}", self.id),
+            label: label.to_owned(),
+            endpoint: endpoint.trim().to_owned(),
+            kind: SourceKind::Hls,
+            scope: SourceScope::Public,
+            enabled: true,
+        };
+        match GstBackend::trusted_hls(source.clone()) {
+            Ok(backend) => {
+                self.label = source.label.clone();
+                self.player.start(Arc::new(backend), source);
+            }
+            Err(_) => self.status = "INVALID HTTPS HLS URL".into(),
+        }
+    }
     pub fn start_hls(&mut self, channel: usize) {
         let variable = format!("RUST_STREAM_HLS_URL_{}", channel + 1);
         let endpoint = std::env::var(&variable).or_else(|_| {
@@ -44,21 +62,7 @@ impl NativePreview {
             self.status = format!("Set {variable}");
             return;
         };
-        let source = Source {
-            id: format!("operator-hls-{channel}"),
-            label: format!("OPERATOR HLS {}", channel + 1),
-            endpoint,
-            kind: SourceKind::Hls,
-            scope: SourceScope::Public,
-            enabled: true,
-        };
-        match GstBackend::trusted_hls(source.clone()) {
-            Ok(backend) => {
-                self.label = source.label.clone();
-                self.player.start(Arc::new(backend), source);
-            }
-            Err(_) => self.status = "INVALID PUBLIC HTTPS HLS CONFIGURATION".into(),
-        }
+        self.start_url(&format!("CONFIGURED HLS {}", channel + 1), &endpoint);
     }
     pub fn stop(&mut self) {
         self.player.stop();
