@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/rust-stream-core", "crates/rust-stream-demo"]
+members = ["crates/rust-stream-core", "crates/rust-stream-demo", "crates/rust-stream-catalog"]
 default-members = ["crates/rust-stream-core"]
 resolver = "2"
 
