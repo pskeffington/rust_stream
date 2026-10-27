@@ -31,7 +31,9 @@ pub struct Source {
     pub enabled: bool,
 }
 
-fn default_enabled() -> bool { true }
+fn default_enabled() -> bool {
+    true
+}
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct SourceManifest {
@@ -73,9 +75,14 @@ pub enum SourceValidationError {
 impl Source {
     /// Validate configuration metadata only. Do not use as a network security boundary.
     pub fn validate_definition(&self, policy: &SourcePolicy) -> Result<(), SourceValidationError> {
-        if self.id.is_empty() || self.id.len() > 64
-            || !self.id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-            || self.label.trim().is_empty() || self.label.len() > 100
+        if self.id.is_empty()
+            || self.id.len() > 64
+            || !self
+                .id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            || self.label.trim().is_empty()
+            || self.label.len() > 100
         {
             return Err(SourceValidationError::BadIdentity);
         }
@@ -92,8 +99,9 @@ impl Source {
         }
         let allowed_scheme = match self.kind {
             SourceKind::Rtsp => matches!(url.scheme(), "rtsp" | "rtsps"),
-            SourceKind::Mjpeg | SourceKind::Hls | SourceKind::Snapshot =>
-                matches!(url.scheme(), "http" | "https"),
+            SourceKind::Mjpeg | SourceKind::Hls | SourceKind::Snapshot => {
+                matches!(url.scheme(), "http" | "https")
+            }
         };
         if !allowed_scheme {
             return Err(SourceValidationError::UnsupportedScheme);
@@ -128,22 +136,33 @@ impl Source {
 
 fn non_global_v4(ip: Ipv4Addr) -> bool {
     let o = ip.octets();
-    ip.is_private() || ip.is_loopback() || ip.is_link_local()
-        || ip.is_unspecified() || ip.is_multicast() || ip.is_broadcast()
-        || o[0] == 0 || o[0] >= 240 || o[0] == 100 && (64..=127).contains(&o[1])
+    ip.is_private()
+        || ip.is_loopback()
+        || ip.is_link_local()
+        || ip.is_unspecified()
+        || ip.is_multicast()
+        || ip.is_broadcast()
+        || o[0] == 0
+        || o[0] >= 240
+        || o[0] == 100 && (64..=127).contains(&o[1])
         || o[0] == 192 && o[1] == 0 && o[2] == 0
         || o[0] == 192 && o[1] == 0 && o[2] == 2
         || o[0] == 198 && (o[1] == 18 || o[1] == 19 || o[1] == 51 && o[2] == 100)
         || o[0] == 203 && o[1] == 0 && o[2] == 113
 }
 fn non_global_v6(ip: Ipv6Addr) -> bool {
-    ip.is_loopback() || ip.is_unspecified() || ip.is_multicast()
+    ip.is_loopback()
+        || ip.is_unspecified()
+        || ip.is_multicast()
         || (ip.segments()[0] & 0xfe00) == 0xfc00
         || (ip.segments()[0] & 0xffc0) == 0xfe80
         || ip.to_ipv4_mapped().is_some_and(non_global_v4)
 }
 pub fn is_non_global_ip(ip: IpAddr) -> bool {
-    match ip { IpAddr::V4(v4) => non_global_v4(v4), IpAddr::V6(v6) => non_global_v6(v6) }
+    match ip {
+        IpAddr::V4(v4) => non_global_v4(v4),
+        IpAddr::V6(v6) => non_global_v6(v6),
+    }
 }
 
 #[cfg(test)]
@@ -151,51 +170,80 @@ mod tests {
     use super::*;
 
     fn sample(endpoint: &str) -> Source {
-        Source { id: "cam-01".into(), label: "Approved feed".into(),
-            endpoint: endpoint.into(), kind: SourceKind::Snapshot,
-            scope: SourceScope::Public, enabled: true }
+        Source {
+            id: "cam-01".into(),
+            label: "Approved feed".into(),
+            endpoint: endpoint.into(),
+            kind: SourceKind::Snapshot,
+            scope: SourceScope::Public,
+            enabled: true,
+        }
     }
     fn policy(host: &str) -> SourcePolicy {
-        SourcePolicy { allowed_hosts: [host.to_string()].into(), ..Default::default() }
+        SourcePolicy {
+            allowed_hosts: [host.to_string()].into(),
+            ..Default::default()
+        }
     }
     #[test]
     fn disallows_unknown_hosts() {
-        assert_eq!(sample("https://unknown.example/image.jpg").validate_definition(&policy("other.example")),
-            Err(SourceValidationError::HostNotAllowed));
+        assert_eq!(
+            sample("https://unknown.example/image.jpg")
+                .validate_definition(&policy("other.example")),
+            Err(SourceValidationError::HostNotAllowed)
+        );
     }
     #[test]
     fn disallows_embedded_passwords() {
-        assert_eq!(sample("https://user:pass@camera.example/still.jpg").validate_definition(&policy("camera.example")),
-            Err(SourceValidationError::CredentialsInUrl));
+        assert_eq!(
+            sample("https://user:pass@camera.example/still.jpg")
+                .validate_definition(&policy("camera.example")),
+            Err(SourceValidationError::CredentialsInUrl)
+        );
     }
     #[test]
     fn denies_private_ip_in_public_scope() {
-        assert_eq!(sample("https://192.168.10.4/still.jpg").validate_definition(&policy("192.168.10.4")),
-            Err(SourceValidationError::PrivateAddressDenied));
+        assert_eq!(
+            sample("https://192.168.10.4/still.jpg").validate_definition(&policy("192.168.10.4")),
+            Err(SourceValidationError::PrivateAddressDenied)
+        );
     }
     #[test]
     fn local_network_requires_explicit_opt_in() {
         let mut s = sample("http://192.168.10.4/still.jpg");
         s.scope = SourceScope::LocalApproved;
-        let p = SourcePolicy { allowed_hosts: ["192.168.10.4".into()].into(),
-            allow_cleartext: true, allow_local_networks: true };
+        let p = SourcePolicy {
+            allowed_hosts: ["192.168.10.4".into()].into(),
+            allow_cleartext: true,
+            allow_local_networks: true,
+        };
         assert!(s.validate_definition(&p).is_ok());
     }
     #[test]
     fn rejects_insecure_public_feed_by_default() {
-        assert_eq!(sample("http://camera.example/still.jpg").validate_definition(&policy("camera.example")),
-            Err(SourceValidationError::CleartextDenied));
+        assert_eq!(
+            sample("http://camera.example/still.jpg")
+                .validate_definition(&policy("camera.example")),
+            Err(SourceValidationError::CleartextDenied)
+        );
     }
     #[test]
     fn rejects_wrong_scheme() {
-        assert_eq!(sample("rtsp://camera.example/video").validate_definition(&policy("camera.example")),
-            Err(SourceValidationError::UnsupportedScheme));
+        assert_eq!(
+            sample("rtsp://camera.example/video").validate_definition(&policy("camera.example")),
+            Err(SourceValidationError::UnsupportedScheme)
+        );
     }
     #[test]
     fn rejects_metadata_service_address() {
-        let p = SourcePolicy { allowed_hosts: ["169.254.169.254".into()].into(),
-            allow_cleartext: true, ..Default::default() };
-        assert_eq!(sample("http://169.254.169.254/latest/meta-data").validate_definition(&p),
-            Err(SourceValidationError::PrivateAddressDenied));
+        let p = SourcePolicy {
+            allowed_hosts: ["169.254.169.254".into()].into(),
+            allow_cleartext: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            sample("http://169.254.169.254/latest/meta-data").validate_definition(&p),
+            Err(SourceValidationError::PrivateAddressDenied)
+        );
     }
 }

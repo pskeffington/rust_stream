@@ -1,48 +1,48 @@
 # Rust Stream
 
-MIT-licensed modular four-screen Rust IP-streaming component for Rust-Boy 2000. Planned: direct IP/RTSP, public city and DOT cameras, explicitly authorized vault cameras, single-TV screen and multimedia screen. Integrated Rust rendering without launching external media applications.
+MIT-licensed, reusable Rust video engine and compact egui video wall for Rust-Boy 2000. Video decodes inside the process and renders in the application window.
 
-## P0 delivered
+The optional GStreamer backend produces 640×360 RGBA video at up to 15 fps. Four independent players support source replacement, stop/restart, focus/grid viewing, stalled-stream detection and three bounded reconnects. The default build opens an offline shell without media libraries or network access.
 
-- Rust workspace and reusable rust-stream-core with four independent slots, source manifest and safe frame size cap.
-- Offline-only egui demonstration UI with 2x2 tiles and click-to-focus.
-- Typed definitions for RTSP, MJPEG, HLS and snapshot; network/decoder adapters remain TODO.
-- Metadata allowlist and local scope checks. These ARE NOT sufficient for connection-time SSRF protection.
-- Unit tests, example disabled manifest, initial technical literature matrix and phased roadmap.
+## Run on macOS
 
-## Commands (not yet executed or validated)
-
-    cargo fmt --all -- --check
-    cargo test -p rust-stream-core
-    cargo run -p rust-stream-demo
-
-Native graphics system libraries may be required. Currently no Rust compiler exists in this execution environment.
-
-## Navigation
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Literature and best practices](docs/LITERATURE_MATRIX.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Disabled example sources](examples/sources.example.json)
-
-Project code uses MIT; check all media plugin/codec licenses separately. No source is considered live or authorized merely because it appears in a manifest.
-
-## Operator-only native HLS preview (experimental)
-
-The default demo displays intentionally blank placeholder tiles. To test actual
-in-process HLS decoding on macOS, install GStreamer and its development packages
-(for example with `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav`),
-then configure **a public HTTPS HLS playlist you are authorized to use**:
+The demo requires Rust **1.95 or newer** (eframe 0.37). The core declares Rust 1.85; its minimum toolchain has not been separately tested.
 
 ```sh
-export RUST_STREAM_HLS_URL='https://your-authorized-publisher.example/live/index.m3u8'
-cargo run -p rust-stream-demo --features native-video
+brew install gstreamer
+# Four network-free moving patterns, decoded by GStreamer:
+RUST_STREAM_TEST_PATTERN=1 cargo run -p rust-stream-demo --features native-video
 ```
 
-Open NEWS and press **PLAY CONFIGURED HLS**. The native decoder sends bounded
-RGBA frames into an egui texture; STOP releases the receiver. This prototype
-does not yet have connection-time DNS, redirects, nested playlist or segment
-URL controls. Do not provide untrusted endpoints, private camera URLs, or
-credentials. No live publisher is bundled or auto-connected. The native
-feature has not yet been compiler-verified on macOS or tested against a
-live authorized broadcaster.
+For an **authorized, trusted public HTTPS HLS source**, set `RUST_STREAM_HLS_URL_1` through `_4` before launching. The legacy `RUST_STREAM_HLS_URL` is a fallback for channel 1. Open **SOURCES**, choose a source for each slot and press **Apply / Restart**. **Remove** stops and clears one slot; **STOP ALL** stops all four. Click a video to focus it and **GRID** to return. There are no bundled or automatically connected broadcaster endpoints.
+
+GStreamer retrieves playlists, segments and redirects internally. Connection-time DNS, peer-address and nested-request enforcement is **not implemented**. Use only publisher-controlled endpoints and child resources you trust; do not enable arbitrary user URLs, credentials or internal cameras. See [native playback and its trust boundary](docs/NATIVE_VIDEO.md).
+
+Category tabs currently share the configured wall. Provider integrations, category catalogs, remembered TV channel selection, audio and Raspberry Pi validation remain pending.
+
+## Verification
+
+```sh
+cargo fmt --all -- --check
+cargo check --workspace
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo check -p rust-stream-demo --features native-video
+cargo test --workspace --all-features
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+```
+
+On macOS with Rust 1.99.1 / GStreamer 1.28.8, the default and native suites passed, including loopback HTTP HLS decoding, failure propagation, four native decoders, cancellation, frame stride and compact layout tests. Four synthetic feeds, focus/grid, stop and shutdown were also visually exercised in the native window. This does not establish broadcaster permission, HTTPS broadcaster compatibility, Rust-Boy embedding or Pi performance. See [validation details](docs/NATIVE_VIDEO.md#validation-record).
+
+CI tests both the default workspace and a native feature build on Ubuntu with GStreamer libraries/plugins installed.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Native video, local setup and validation](docs/NATIVE_VIDEO.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Feed catalog and approval status](docs/DIRECT_FEED_CATALOG.md)
+- [Rust-Boy integration](docs/RUST_BOY_MEDIA_INTEGRATION.md)
+- [Disabled example sources](examples/sources.example.json)
+
+Project code and owned test footage use MIT. Check media plugin and codec licenses independently. An entry in a catalog or an HTTP response does not establish authorization or working video.

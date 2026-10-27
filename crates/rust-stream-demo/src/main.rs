@@ -1,169 +1,260 @@
-//! Compact media shell. Native video is explicit opt-in via feature and environment.
+//! Compact native video wall. All network sources require explicit operator configuration.
 use eframe::egui::{self, Align2, Color32, FontId, Sense, Stroke, StrokeKind, Vec2};
-use rust_stream_core::{FreeTvPlayer, FreeTvService, PlayerStatus, Quad, Slot};
+use rust_stream_core::Quad;
 #[cfg(feature = "native-video")]
 mod native_preview;
 #[cfg(feature = "native-video")]
 use native_preview::NativePreview;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Section { Security, News, Traffic, FreeTv, Custom }
-struct Viewer { quad: Quad, section: Section, news_choice: usize, free_tv: FreeTvPlayer,
-    #[cfg(feature = "native-video")] preview: NativePreview,
+enum Section {
+    Security,
+    News,
+    Traffic,
+    FreeTv,
+    Custom,
 }
-
+struct Viewer {
+    quad: Quad,
+    section: Section,
+    #[cfg(feature = "native-video")]
+    previews: [NativePreview; 4],
+    #[cfg(feature = "native-video")]
+    settings: bool,
+    #[cfg(feature = "native-video")]
+    choices: [usize; 4],
+}
 impl Default for Viewer {
-    fn default() -> Self { Self { quad: Quad::default(), section: Section::Security, news_choice: 0, free_tv: FreeTvPlayer::default(), #[cfg(feature = "native-video")] preview: NativePreview::default() } }
-}
-
-fn draw_slot(ui: &mut egui::Ui, slot: &Slot, size: Vec2, focused: bool) -> bool {
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    let painter = ui.painter_at(rect);
-    let bg = Color32::from_rgb(11, 25, 19);
-    let accent = if focused { Color32::from_rgb(145, 230, 154) }
-        else { Color32::from_rgb(72, 122, 88) };
-    painter.rect_filled(rect, 4.0, bg);
-    painter.rect_stroke(rect, 4.0, Stroke::new(1.0, accent), StrokeKind::Inside);
-    let compact = size.x < 300.0 || size.y < 140.0;
-    let title = slot.source.as_ref().map_or_else(
-        || format!("FEED {:02}   NO SOURCE", slot.index + 1),
-        |s| format!("FEED {:02}   {}", slot.index + 1, s.label),
-    );
-    painter.text(rect.left_top() + Vec2::new(6.0, 6.0), Align2::LEFT_TOP,
-        if compact { format!("CAM {:02}", slot.index + 1) } else { title },
-        FontId::monospace(if compact { 10.0 } else { 14.0 }), accent);
-    if rect.height() > 100.0 && rect.width() > 180.0 {
-        painter.text(rect.center(), Align2::CENTER_CENTER,
-            "AWAITING APPROVED IP FEED", FontId::monospace(12.0),
-            Color32::from_rgb(100, 140, 107));
+    fn default() -> Self {
+        #[allow(unused_mut)]
+        let mut viewer = Self {
+            quad: Quad::default(),
+            section: Section::Security,
+            #[cfg(feature = "native-video")]
+            previews: std::array::from_fn(NativePreview::new),
+            #[cfg(feature = "native-video")]
+            settings: false,
+            #[cfg(feature = "native-video")]
+            choices: [0; 4],
+        };
+        #[cfg(feature = "native-video")]
+        if std::env::var("RUST_STREAM_TEST_PATTERN").as_deref() == Ok("1") {
+            for (i, preview) in viewer.previews.iter_mut().enumerate() {
+                preview.start_test();
+                viewer.choices[i] = 1;
+            }
+        }
+        viewer
     }
-    if rect.height() > 56.0 {
-        painter.text(rect.left_bottom() + Vec2::new(12.0, -12.0), Align2::LEFT_BOTTOM,
-            format!("{:?}", slot.status).to_uppercase(),
-            FontId::monospace(if compact { 9.0 } else { 11.0 }), Color32::from_rgb(100, 150, 116));
-    }
-    response.clicked()
 }
-
-impl eframe::App for Viewer {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.strong("MEDIA");
-                if self.quad.focused().is_some() && ui.small_button("GRID").clicked() {
-                    let _ = self.quad.set_focus(None);
-                }
-            });
-            ui.horizontal_wrapped(|ui| {
-                for (section, label) in [
-                    (Section::Security, "SECURITY"), (Section::News, "NEWS"),
-                    (Section::Traffic, "TRAFFIC"), (Section::FreeTv, "FREE TV"),
-                    (Section::Custom, "CUSTOM"),
-                ] {
-                    if ui.selectable_label(self.section == section, label).clicked() {
-                        self.section = section;
-                        let _ = self.quad.set_focus(None);
-                    }
-                }
-            });
-            ui.separator();
-            match self.section {
-                Section::FreeTv => {
-                    // A native player surface; web-service DRM/embedding support is not yet available.
-                    // Never pretend a provider webpage is a playable HLS stream.
+const ACCENT: Color32 = Color32::from_rgb(145, 230, 154);
+impl Viewer {
+    #[cfg(feature = "native-video")]
+    fn settings(&mut self, ctx: &egui::Context) {
+        egui::Window::new("Sources")
+            .open(&mut self.settings)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label("Configure each slot, then press Apply / Restart.");
+                ui.label(
+                    "HLS sources must be trusted and authorized, including all child resources.",
+                );
+                const SOURCES: [&str; 6] = [
+                    "No source",
+                    "Synthetic video",
+                    "Configured HLS 1",
+                    "Configured HLS 2",
+                    "Configured HLS 3",
+                    "Configured HLS 4",
+                ];
+                for i in 0..4 {
                     ui.horizontal(|ui| {
-                        egui::ComboBox::from_id_salt("free-tv-service")
-                            .selected_text(self.free_tv.service().name())
+                        ui.label(format!("{}", i + 1));
+                        egui::ComboBox::from_id_salt(("source", i))
+                            .selected_text(SOURCES[self.choices[i]])
                             .show_ui(ui, |ui| {
-                                for service in FreeTvService::ALL {
-                                    if ui.selectable_label(self.free_tv.service() == service, service.name()).clicked() {
-                                        self.free_tv.select(service);
-                                    }
+                                for (n, label) in SOURCES.iter().enumerate() {
+                                    ui.selectable_value(&mut self.choices[i], n, *label);
                                 }
                             });
-                        ui.hyperlink_to("OPEN OFFICIAL SITE", self.free_tv.service().official_site());
-                    });
-                    let available = ui.available_size();
-                    let (rect, _) = ui.allocate_exact_size(available, egui::Sense::hover());
-                    let painter = ui.painter_at(rect);
-                    painter.rect_filled(rect, 3.0, Color32::from_rgb(11, 25, 19));
-                    painter.rect_stroke(rect, 3.0,
-                        Stroke::new(1.0, Color32::from_rgb(75, 119, 80)), StrokeKind::Inside);
-                    if rect.width() >= 100.0 && rect.height() >= 56.0 {
-                        painter.text(rect.center() + Vec2::new(0.0, -12.0),
-                            Align2::CENTER_CENTER, self.free_tv.service().name(),
-                            FontId::monospace(15.0), Color32::from_rgb(145, 230, 154));
-                        painter.text(rect.center() + Vec2::new(0.0, 16.0),
-                            Align2::CENTER_CENTER, match self.free_tv.status() {
-                                PlayerStatus::Unconfigured => "NO AUTHORIZED NATIVE STREAM",
-                                PlayerStatus::Ready => "SOURCE READY / DECODER PENDING",
-                                _ => "NATIVE DECODER NOT CONNECTED",
-                            },
-                            FontId::monospace(if rect.width() < 360.0 { 9.0 } else { 11.0 }),
-                            Color32::from_rgb(100, 150, 116));
-                    }
-                }
-                Section::News => {
-                    #[cfg(feature = "native-video")]
-                    {
-                        ui.horizontal_wrapped(|ui| {
-                            if ui.button("PLAY CONFIGURED HLS").clicked() { self.preview.start(); }
-                            if ui.button("STOP").clicked() { self.preview.stop(); }
-                        });
-                        self.preview.show(ui);
-                        return;
-                    }
-                    const CHANNELS: [&str; 4] = ["AL JAZEERA", "DW ENGLISH", "BOSTON 25", "WCVB 5"];
-                    ui.horizontal_wrapped(|ui| {
-                        for (index, name) in CHANNELS.iter().enumerate() {
-                            if ui.selectable_label(self.news_choice == index, *name).clicked() {
-                                self.news_choice = index;
+                        if ui.button("Apply / Restart").clicked() {
+                            match self.choices[i] {
+                                0 => self.previews[i].stop(),
+                                1 => self.previews[i].start_test(),
+                                n => self.previews[i].start_hls(n - 2),
                             }
                         }
+                        if ui.button("Remove").clicked() {
+                            self.previews[i].stop();
+                            self.choices[i] = 0;
+                        }
                     });
-                    let (rect, _) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
-                    let painter = ui.painter_at(rect);
-                    painter.rect_filled(rect, 3.0, Color32::from_rgb(11, 25, 19));
-                    painter.text(rect.center(), Align2::CENTER_CENTER, CHANNELS[self.news_choice],
-                        FontId::monospace(15.0), Color32::from_rgb(145, 230, 154));
-                    painter.text(rect.left_bottom() + Vec2::new(8.0, -8.0), Align2::LEFT_BOTTOM,
-                        "DIRECT VIDEO NOT VERIFIED / OFFLINE", FontId::monospace(10.0),
-                        Color32::from_rgb(100, 150, 116));
                 }
-                Section::Security | Section::Traffic | Section::Custom => {
-                    let available = ui.available_size();
-                    let gap = 4.0;
-                    if let Some(index) = self.quad.focused() {
-                        if draw_slot(ui, &self.quad.slots()[index], available, true) {
-                            let _ = self.quad.set_focus(None);
-                        }
-                    } else {
-                        let width = ((available.x - gap - ui.spacing().item_spacing.x) / 2.0).max(1.0);
-                        let height = ((available.y - gap - ui.spacing().item_spacing.y) / 2.0).max(1.0);
-                        for row in 0..2 {
-                            ui.horizontal(|ui| {
-                                for col in 0..2 {
-                                    let index = row * 2 + col;
-                                    if draw_slot(ui, &self.quad.slots()[index],
-                                        Vec2::new(width, height), false) {
-                                        let _ = self.quad.set_focus(Some(index));
-                                    }
-                                    if col == 0 { ui.add_space(gap); }
-                                }
-                            });
-                            if row == 0 { ui.add_space(gap); }
-                        }
+                ui.label("Set RUST_STREAM_HLS_URL_1 through _4 before launch.");
+                ui.label("DNS, redirect and nested HLS request enforcement is still pending.");
+            });
+    }
+    fn draw_slot(&mut self, ui: &mut egui::Ui, index: usize, size: Vec2) -> bool {
+        let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+        let painter = ui.painter_at(rect);
+        painter.rect_filled(rect, 3.0, Color32::from_rgb(11, 25, 19));
+        #[cfg(feature = "native-video")]
+        self.previews[index].paint(&painter, rect);
+        painter.rect_stroke(rect, 3.0, Stroke::new(1.0, ACCENT), StrokeKind::Inside);
+        #[cfg(feature = "native-video")]
+        let (label, status) = (
+            &self.previews[index].label,
+            self.previews[index].status.clone(),
+        );
+        #[cfg(not(feature = "native-video"))]
+        let (label, status) = (
+            format!("FEED {:02}", index + 1),
+            "NATIVE VIDEO DISABLED".to_string(),
+        );
+        let font = FontId::monospace(if size.x < 250.0 { 10.0 } else { 13.0 });
+        if size.y > 30.0 {
+            painter.rect_filled(
+                egui::Rect::from_min_size(rect.min, Vec2::new(size.x, 22.0)),
+                0.0,
+                Color32::from_black_alpha(190),
+            );
+            painter.text(
+                rect.left_top() + Vec2::splat(5.0),
+                Align2::LEFT_TOP,
+                label,
+                font.clone(),
+                ACCENT,
+            );
+        }
+        if size.y > 60.0 {
+            painter.rect_filled(
+                egui::Rect::from_min_size(
+                    rect.left_bottom() - Vec2::new(0.0, 22.0),
+                    Vec2::new(size.x, 22.0),
+                ),
+                0.0,
+                Color32::from_black_alpha(190),
+            );
+            painter.text(
+                rect.left_bottom() + Vec2::new(5.0, -5.0),
+                Align2::LEFT_BOTTOM,
+                status,
+                font,
+                ACCENT,
+            );
+        }
+        response.clicked()
+    }
+    fn controls(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal_wrapped(|ui| {
+            ui.strong("MEDIA");
+            if self.quad.focused().is_some() && ui.button("GRID").clicked() {
+                let _ = self.quad.set_focus(None);
+            }
+            #[cfg(feature = "native-video")]
+            {
+                if ui.button("SOURCES").clicked() {
+                    self.settings = true;
+                }
+                if ui.button("STOP ALL").clicked() {
+                    for p in &mut self.previews {
+                        p.stop();
                     }
                 }
             }
         });
+        ui.horizontal_wrapped(|ui| {
+            for (section, label) in [
+                (Section::Security, "SECURITY"),
+                (Section::News, "NEWS"),
+                (Section::Traffic, "TRAFFIC"),
+                (Section::FreeTv, "FREE TV"),
+                (Section::Custom, "CUSTOM"),
+            ] {
+                if ui
+                    .selectable_label(self.section == section, label)
+                    .clicked()
+                {
+                    self.section = section;
+                    let _ = self.quad.set_focus(None);
+                }
+            }
+        });
+    }
+    fn wall(&mut self, ui: &mut egui::Ui) {
+        let available = ui.available_size().max(Vec2::splat(1.0));
+        if let Some(index) = self.quad.focused() {
+            if self.draw_slot(ui, index, available) {
+                let _ = self.quad.set_focus(None);
+            }
+        } else {
+            let spacing = ui.spacing().item_spacing;
+            let size = ((available - spacing) / 2.0).max(Vec2::splat(1.0));
+            for row in 0..2 {
+                ui.horizontal(|ui| {
+                    for col in 0..2 {
+                        let index = row * 2 + col;
+                        if self.draw_slot(ui, index, size) {
+                            let _ = self.quad.set_focus(Some(index));
+                        }
+                    }
+                });
+            }
+        }
     }
 }
-
+impl eframe::App for Viewer {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        #[cfg(feature = "native-video")]
+        {
+            for preview in &mut self.previews {
+                preview.update(ui.ctx());
+            }
+            self.settings(ui.ctx());
+        }
+        egui::CentralPanel::default().show(ui, |ui| {
+            self.controls(ui);
+            // Category catalogs remain pending. The same operator-configured wall is shared.
+            self.wall(ui);
+        });
+    }
+}
 fn main() -> eframe::Result {
     eframe::run_native(
         "Rust Stream",
-        eframe::NativeOptions::default(),
+        eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 480.0]),
+            ..Default::default()
+        },
         Box::new(|_cc| Ok(Box::new(Viewer::default()))),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn compact_wall_stays_inside_display() {
+        for size in [
+            egui::vec2(320.0, 240.0),
+            egui::vec2(480.0, 320.0),
+            egui::vec2(800.0, 480.0),
+        ] {
+            let ctx = egui::Context::default();
+            let mut viewer = Viewer::default();
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
+                    viewer.controls(ui);
+                    viewer.wall(ui);
+                    assert!(ui.min_rect().right() <= size.x + 0.1);
+                    assert!(ui.min_rect().bottom() <= size.y + 0.1);
+                });
+            });
+            output.textures_delta.clear();
+        }
+    }
 }

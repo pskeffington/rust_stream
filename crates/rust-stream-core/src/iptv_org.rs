@@ -78,10 +78,15 @@ pub fn import_iptv_org(
             result.skipped += 1;
             continue;
         };
-        if channel.is_nsfw || channel.closed.is_some()
+        if channel.is_nsfw
+            || channel.closed.is_some()
             || (!countries.is_empty() && !countries.contains(&channel.country))
-            || stream.referrer.is_some() || stream.user_agent.is_some()
-            || stream.labels.iter().any(|l| l == "Geo-blocked" || l == "Not 24/7")
+            || stream.referrer.is_some()
+            || stream.user_agent.is_some()
+            || stream
+                .labels
+                .iter()
+                .any(|l| l == "Geo-blocked" || l == "Not 24/7")
         {
             result.skipped += 1;
             continue;
@@ -90,7 +95,8 @@ pub fn import_iptv_org(
             result.skipped += 1;
             continue;
         };
-        if url.scheme() != "https" || !url.path().to_ascii_lowercase().ends_with(".m3u8")
+        if url.scheme() != "https"
+            || !url.path().to_ascii_lowercase().ends_with(".m3u8")
             || !seen.insert((channel_id.clone(), stream.url.clone()))
         {
             result.skipped += 1;
@@ -137,7 +143,10 @@ mod tests {
         let imported = import_iptv_org(CHANNELS, streams, &policy(), &BTreeSet::new()).unwrap();
         assert_eq!(imported.candidates.len(), 1);
         assert!(!imported.candidates[0].source.enabled);
-        assert_eq!(imported.candidates[0].categories, vec![String::from("news")]);
+        assert_eq!(
+            imported.candidates[0].categories,
+            vec![String::from("news")]
+        );
     }
     #[test]
     fn rejects_unknown_private_unapproved_and_external_player_sources() {
@@ -162,8 +171,19 @@ mod tests {
             {"channel":"Test.us","url":"https://media.example/live.m3u8"}
         ]"#;
         let us = ["US".into()].into();
-        assert_eq!(import_iptv_org(CHANNELS, streams, &policy(), &us).unwrap().candidates.len(), 1);
+        assert_eq!(
+            import_iptv_org(CHANNELS, streams, &policy(), &us)
+                .unwrap()
+                .candidates
+                .len(),
+            1
+        );
         let ca = ["CA".into()].into();
-        assert!(import_iptv_org(CHANNELS, streams, &policy(), &ca).unwrap().candidates.is_empty());
+        assert!(
+            import_iptv_org(CHANNELS, streams, &policy(), &ca)
+                .unwrap()
+                .candidates
+                .is_empty()
+        );
     }
 }

@@ -15,12 +15,16 @@ url = "2"
 
 [features]
 default = []
-native-video = ["dep:gstreamer", "dep:gstreamer-app"]
+native-video = ["dep:gstreamer", "dep:gstreamer-app", "dep:gstreamer-video"]
 
 [dependencies.gstreamer]
 version = "0.24"
 optional = true
 
 [dependencies.gstreamer-app]
+version = "0.24"
+optional = true
+
+[dependencies.gstreamer-video]
 version = "0.24"
 optional = true
