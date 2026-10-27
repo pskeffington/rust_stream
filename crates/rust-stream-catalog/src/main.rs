@@ -78,12 +78,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn size_limit_is_stricter_than_network_budget() {
-        assert!(MAX_CHANNELS < MAX_STREAMS);
-        assert!(MAX_STREAMS <= 24 * 1024 * 1024);
-    }
-}
+// Compile-time invariants; no runtime assertion of constants.
+const _: () = {
+    assert!(MAX_CHANNELS < MAX_STREAMS);
+    assert!(MAX_STREAMS <= 24 * 1024 * 1024);
+};
