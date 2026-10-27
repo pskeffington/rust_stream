@@ -23,7 +23,7 @@ pub use free_tv::{FreeTvPlayer, FreeTvService, PlayerStatus};
 pub use media::{FeedCollection, MediaView, ViewMode};
 pub use quad::{FrameRgba, MediaBackend, MediaSession, Quad, Slot, SlotStatus, StreamError, QUAD_SLOTS};
 pub use retry::RetryBackoff;
-pub use source::{Source, SourceKind, SourceManifest, SourcePolicy, SourceScope, SourceValidationError};
+pub use source::{is_non_global_ip, Source, SourceKind, SourceManifest, SourcePolicy, SourceScope, SourceValidationError};
 
 #[cfg(feature = "native-video")]
 mod gst_video;
