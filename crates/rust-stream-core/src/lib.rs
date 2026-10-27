@@ -22,3 +22,8 @@ pub use media::{FeedCollection, MediaView, ViewMode};
 pub use quad::{FrameRgba, MediaBackend, MediaSession, Quad, Slot, SlotStatus, StreamError, QUAD_SLOTS};
 pub use retry::RetryBackoff;
 pub use source::{Source, SourceKind, SourceManifest, SourcePolicy, SourceScope, SourceValidationError};
+
+#[cfg(feature = "native-video")]
+mod gst_video;
+#[cfg(feature = "native-video")]
+pub use gst_video::GstBackend;
