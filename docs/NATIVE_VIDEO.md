@@ -14,6 +14,14 @@ This starts four network-free GStreamer patterns in the native window. Otherwise
 
 For trusted HLS, set `RUST_STREAM_HLS_URL_1` through `_4` before launch. `RUST_STREAM_HLS_URL` remains a fallback for channel 1. No URL or credentials are displayed in the UI. No source is scraped or auto-approved.
 
+## Primary feeds and custom HLS selection
+
+The demo exposes a compact **PRIMARY** selector in the top toolbar (Box 1), and a **STREAMS** window for all four boxes. Switching a selection starts that feed immediately. The available options are Off, COMET TV, Configured 1-4 (the existing environment variables), Custom HLS, and Test pattern. COMET TV is attempted in Box 1 on startup, but is a **candidate** rather than a confirmed operational source; check decoded frames and audio on the operator's network before describing it as live.
+
+To add an unlisted stream: open **STREAMS**, choose **Custom HLS** for a box, enter a trusted/authorized HTTPS `.m3u8` URL, and press **Load**. The URL is deliberately session-only; it is not stored in the repository or any log by this UI. Invalid or missing URLs leave the slot offline. The current GStreamer backend still does not enforce nested HLS request policy, so this UI is for trusted operator-managed sources only, not a public arbitrary-URL submission service. Embedded credentials and local/private URLs remain disallowed.
+
+The source picker changes source selection independently for each box. This UI update does not implement or prove audio arbitration; only one-audio-owner enforcement remains a separate integration requirement, including confirmation with real audio-bearing live feeds.
+
 ## Decoder and worker lifecycle
 
 `GstBackend::trusted_hls(source)` binds a backend to an exact enabled, public HTTPS HLS source, validating its definition. `open` rejects another source. Construction is an explicit assertion of operator trust in the publisher and all child resources; it does not establish authorization or network safety. `GstBackend::test_pattern(index)` creates a network-free backend through the same raw-frame pipeline.
