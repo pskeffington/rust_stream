@@ -42,3 +42,13 @@ Treat non-200, HTML, geo-blocking, ad/DRM/token requirements, redirects and non-
 ## Integration gate
 
 The native player's curated picker currently includes two international candidates behind an explicit ID approval variable. **Do not** append the New England discovery entries directly to an auto-play list. They must pass both authorization review and runtime network enforcement for nested HLS resources. The existing GStreamer backend does not yet secure every redirected/subresource request; it is not appropriate for unattended arbitrary catalog auto-connect. Retain direct HTTPS media only, no YouTube or embedded player URLs.
+\n## Optional bounded HLS manifest diagnostics
+
+A deterministic offline test suite and an **opt-in** source probe are available. The script accepts only the exact IDs of direct-HLS candidates already in `data/new_england_sources.json`, sends one bounded HTTPS request per selected ID, denies redirects, limits responses to 256 KiB and records whether an `#EXTM3U` master/media manifest was received. It never fetches variants or segments, decodes frames, approves rights, updates the curated catalog, or enables auto-connect.
+
+```sh
+python3 -m unittest discover -s tests -p 'test_new_england_probe.py'
+python3 scripts/probe_new_england_hls.py --ids ma-cbsboston --output /tmp/new-england-hls-check.json
+```
+
+Use only after reviewing the publisher's conditions and determining the endpoint is appropriate to probe. Exit status 0 means the selected manifests were reachable and recognizable **at that moment**, not that video works or is licensed. Reports omit URLs and sensitive request details. A failure could indicate DNS restrictions, expiration, geo-blocking or HTTP errors; do not equate this with a broadcaster being off air. The script currently uses a fixed source inventory, but its transport is not a hardened network sandbox against DNS remapping; run only in a restricted environment with trusted source hosts. Never use this script as an unattended approval gate.
