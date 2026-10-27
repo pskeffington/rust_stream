@@ -31,13 +31,13 @@ impl Default for Viewer {
         #[allow(unused_mut)]
         let mut viewer = Self {
             quad: Quad::default(),
-            section: Section::Security,
+            section: Section::News,
             #[cfg(feature = "native-video")]
             previews: std::array::from_fn(NativePreview::new),
             #[cfg(feature = "native-video")]
             settings: false,
             #[cfg(feature = "native-video")]
-            choices: [1, 0, 0, 0],
+            choices: [0; 4],
             #[cfg(feature = "native-video")]
             custom_urls: std::array::from_fn(|_| String::new()),
         };
@@ -45,12 +45,12 @@ impl Default for Viewer {
         if std::env::var("RUST_STREAM_TEST_PATTERN").as_deref() == Ok("1") {
             for (i, preview) in viewer.previews.iter_mut().enumerate() {
                 preview.start_test();
-                viewer.choices[i] = 1;
+                viewer.choices[i] = 7;
             }
         }
         #[cfg(feature = "native-video")]
         if std::env::var("RUST_STREAM_TEST_PATTERN").as_deref() != Ok("1") {
-            viewer.apply_source(0);
+            viewer.load_section();
         }
         viewer
     }
@@ -62,8 +62,42 @@ const SOURCES: [&str; 8] = [
     "Off", "COMET TV", "Configured 1", "Configured 2",
     "Configured 3", "Configured 4", "Custom HLS", "Test pattern",
 ];
+#[cfg(feature = "native-video")]
+fn configured_name(channel: usize) -> String {
+    std::env::var(format!("RUST_STREAM_HLS_NAME_{}", channel + 1))
+        .ok().filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| format!("User feed {}", channel + 1))
+}
+#[cfg(feature = "native-video")]
+fn configured_url(channel: usize) -> Option<String> {
+    std::env::var(format!("RUST_STREAM_HLS_URL_{}", channel + 1))
+        .or_else(|_| if channel == 0 { std::env::var("RUST_STREAM_HLS_URL") }
+                 else { Err(std::env::VarError::NotPresent) })
+        .ok().filter(|url| url.starts_with("https://") && !url.trim().is_empty())
+}
 const ACCENT: Color32 = Color32::from_rgb(145, 230, 154);
 impl Viewer {
+    #[cfg(feature = "native-video")]
+    fn load_section(&mut self) {
+        match self.section {
+            Section::News => {
+                for i in 0..4 {
+                    self.choices[i] = if configured_url(i).is_some() { i + 2 } else { 0 };
+                    self.apply_source(i);
+                }
+            }
+            Section::FreeTv => {
+                self.choices = [1, 0, 0, 0];
+                for i in 0..4 { self.apply_source(i); }
+            }
+            Section::Security | Section::Traffic | Section::Custom => {
+                for i in 0..4 {
+                    self.choices[i] = 0;
+                    self.apply_source(i);
+                }
+            }
+        }
+    }
     #[cfg(feature = "native-video")]
     fn apply_source(&mut self, i: usize) {
         match self.choices[i] {
@@ -80,10 +114,18 @@ impl Viewer {
         let previous = self.choices[i];
         egui::ComboBox::from_id_salt(("source", i))
             .width(140.0)
-            .selected_text(SOURCES[self.choices[i]])
+            .selected_text(if (2..=5).contains(&self.choices[i]) {
+                configured_name(self.choices[i] - 2)
+            } else { SOURCES[self.choices[i]].to_owned() })
             .show_ui(ui, |ui| {
                 for (n, label) in SOURCES.iter().enumerate() {
-                    ui.selectable_value(&mut self.choices[i], n, *label);
+                    if (2..=5).contains(&n) {
+                        ui.add_enabled_ui(configured_url(n - 2).is_some(), |ui| {
+                            ui.selectable_value(&mut self.choices[i], n, configured_name(n - 2));
+                        });
+                    } else {
+                        ui.selectable_value(&mut self.choices[i], n, *label);
+                    }
                 }
             });
         if previous != self.choices[i] {
@@ -97,7 +139,7 @@ impl Viewer {
             .open(&mut open)
             .resizable(true)
             .show(ctx, |ui| {
-                ui.label("Choose a primary feed for each box. Changes load immediately.");
+                ui.label("Choose a feed for each box. Changes load immediately.");
                 for i in 0..4 {
                     ui.horizontal(|ui| {
                         ui.label(format!("BOX {}", i + 1));
@@ -118,7 +160,7 @@ impl Viewer {
                 }
                 ui.separator();
                 ui.small("Custom URLs are session-only and must be trusted/authorized HTTPS HLS manifests.");
-                ui.small("Configured 1-4 use RUST_STREAM_HLS_URL_1 through _4.");
+                ui.small("Named feeds: RUST_STREAM_HLS_NAME_1..4 and RUST_STREAM_HLS_URL_1..4.");
                 ui.small("A validated playlist is not proof of live video or permission to rebroadcast.");
             });
         self.settings = open;
@@ -182,7 +224,7 @@ impl Viewer {
             }
             #[cfg(feature = "native-video")]
             {
-                ui.label("PRIMARY:");
+                ui.label("BOX 1:");
                 self.source_picker(ui, 0);
                 if ui.button("STREAMS").clicked() {
                     self.settings = true;
@@ -196,17 +238,21 @@ impl Viewer {
         });
         ui.horizontal_wrapped(|ui| {
             for (section, label) in [
-                (Section::Security, "SECURITY"),
                 (Section::News, "NEWS"),
-                (Section::Traffic, "TRAFFIC"),
                 (Section::FreeTv, "FREE TV"),
+                (Section::Traffic, "TRAFFIC"),
+                (Section::Security, "SECURITY"),
                 (Section::Custom, "CUSTOM"),
             ] {
                 if ui
                     .selectable_label(self.section == section, label)
                     .clicked()
                 {
-                    self.section = section;
+                    if self.section != section {
+                        self.section = section;
+                        #[cfg(feature = "native-video")]
+                        self.load_section();
+                    }
                     let _ = self.quad.set_focus(None);
                 }
             }
@@ -245,7 +291,10 @@ impl eframe::App for Viewer {
         }
         egui::CentralPanel::default().show(ui, |ui| {
             self.controls(ui);
-            // Category catalogs remain pending. The same operator-configured wall is shared.
+            #[cfg(feature = "native-video")]
+            if self.section == Section::News && self.choices.iter().all(|choice| *choice == 0) {
+                ui.small("No news video configured. Add named HTTPS HLS feeds in your launch environment, or use STREAMS to load a custom feed.");
+            }
             self.wall(ui);
         });
     }
