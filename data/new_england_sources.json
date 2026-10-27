@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "updated_utc": "2026-10-27",
-  "notes": "Discovery registry only. No endpoint is validated live, approved for reuse, or enabled for unattended playback. Publisher pages are not media endpoints. Public camera directories may supply still images rather than video.",
+  "notes": "Discovery registry. Operator Mac probe results record manifest reachability only; no decoded frames or rights verified. No auto-connect.",
   "sources": [
     {
       "id": "ma-wfxt",
@@ -11,10 +11,14 @@
       "kind": "direct_hls_candidate",
       "endpoint": "https://amg00327-coxmediagroup-wfxtnow-ono-00yau.amagi.tv/ts-us-e2-n2/playlist/amg00327-coxmediagroup-wfxtnow-ono/2122ca47-9e2d-11f1-b325-3a9c84cbd567/72/1920x1080_7619040/index.m3u8",
       "evidence": "https://github.com/jyoon14/iptv/blob/main/tv.m3u8",
-      "manifest_status": "not_tested",
+      "manifest_status": "http_error",
       "frame_status": "not_tested",
       "publisher_permission": "not_reviewed",
-      "auto_connect": false
+      "auto_connect": false,
+      "last_http_status": 204,
+      "manifest_kind": null,
+      "last_manifest_check_utc": "2026-10-27T05:46:38.473553+00:00",
+      "last_manifest_check_origin": "operator_mac_report"
     },
     {
       "id": "ma-wcvb",
@@ -24,10 +28,14 @@
       "kind": "direct_hls_candidate",
       "endpoint": "https://aegis-cloudfront-1.tubi.video/c2e3094d-ad56-4c5f-9655-cd80df71fbab/playlist.m3u8",
       "evidence": "https://github.com/jyoon14/iptv/blob/main/tv.m3u8",
-      "manifest_status": "not_tested",
+      "manifest_status": "manifest_reachable",
       "frame_status": "not_tested",
       "publisher_permission": "not_reviewed",
-      "auto_connect": false
+      "auto_connect": false,
+      "last_http_status": 200,
+      "manifest_kind": "master",
+      "last_manifest_check_utc": "2026-10-27T05:46:38.473553+00:00",
+      "last_manifest_check_origin": "operator_mac_report"
     },
     {
       "id": "ma-cbsboston",
@@ -37,10 +45,14 @@
       "kind": "direct_hls_candidate",
       "endpoint": "https://cbsn-bos.cbsnstream.cbsnews.com/out/v1/589d66ec6eb8434c96c28de0370d1326/master.m3u8",
       "evidence": "https://github.com/mayaxcn/getM3U8/blob/master/tv.txt",
-      "manifest_status": "not_tested",
+      "manifest_status": "manifest_reachable",
       "frame_status": "not_tested",
       "publisher_permission": "not_reviewed",
-      "auto_connect": false
+      "auto_connect": false,
+      "last_http_status": 200,
+      "manifest_kind": "master",
+      "last_manifest_check_utc": "2026-10-27T05:46:38.473553+00:00",
+      "last_manifest_check_origin": "operator_mac_report"
     },
     {
       "id": "ma-nbc10",
