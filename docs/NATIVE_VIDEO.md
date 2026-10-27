@@ -14,6 +14,20 @@ This starts four network-free GStreamer patterns in the native window. Otherwise
 
 For trusted HLS, set `RUST_STREAM_HLS_URL_1` through `_4` before launch. `RUST_STREAM_HLS_URL` remains a fallback for channel 1. No URL or credentials are displayed in the UI. No source is scraped or auto-approved.
 
+## Startup NEWS and channel naming
+
+NEWS is the initial tab. At startup the UI assigns the first four populated HTTPS HLS environment inputs to boxes 1-4, respectively, and immediately starts their native player sessions. Use a descriptive name for each input instead of generic source numbering:
+
+```sh
+RUST_STREAM_HLS_NAME_1="Local News" \
+RUST_STREAM_HLS_URL_1="https://publisher.example/live.m3u8" \
+cargo run -p rust-stream-demo --features native-video
+```
+
+Repeat `RUST_STREAM_HLS_NAME_2` through `_4` with their matching URL variables. These are operator-managed inputs, not automatically discovered or verified news stations. Missing inputs stay off and display a configuration hint; no fake live station is substituted. On selecting FREE TV, Box 1 selects COMET's candidate HLS URL, with other boxes off. Changing tabs resets the displayed wall for that category; customized choices in a category do not persist after leaving it. This is a deliberate interim behavior pending persistent per-category presets and working-stream health history.
+
+The header provides a Box 1 quick picker and a STREAMS window for managing all four boxes. Operator-supplied names show in the channel picker and video label. The active status remains driven by playback state, not feed labels or a successful manifest lookup.
+
 ## Primary feeds and custom HLS selection
 
 The demo exposes a compact **PRIMARY** selector in the top toolbar (Box 1), and a **STREAMS** window for all four boxes. Switching a selection starts that feed immediately. The available options are Off, COMET TV, Configured 1-4 (the existing environment variables), Custom HLS, and Test pattern. COMET TV is attempted in Box 1 on startup, but is a **candidate** rather than a confirmed operational source; check decoded frames and audio on the operator's network before describing it as live.
