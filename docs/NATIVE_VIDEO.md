@@ -28,6 +28,10 @@ Repeat `RUST_STREAM_HLS_NAME_2` through `_4` with their matching URL variables. 
 
 The header provides a Box 1 quick picker and a STREAMS window for managing all four boxes. Operator-supplied names show in the channel picker and video label. The active status remains driven by playback state, not feed labels or a successful manifest lookup.
 
+## Inline named stream input
+
+Click **+ STREAM** in the player's main toolbar. Select Box 1-4, provide a human-readable **Name**, enter a trusted HTTPS HLS stream URL and click **PLAY** (or press Enter in the URL field). The player uses the supplied name for the video overlay and source selector. Clicking a video to focus it before opening + STREAM preselects that box. Custom entries remain in memory for the current application session only; there is no disk persistence or public URL discovery. A successful click is not proof of a decoded stream: inspect the tile status and frames.
+
 ## Primary feeds and custom HLS selection
 
 The demo exposes a compact **PRIMARY** selector in the top toolbar (Box 1), and a **STREAMS** window for all four boxes. Switching a selection starts that feed immediately. The available options are Off, COMET TV, Configured 1-4 (the existing environment variables), Custom HLS, and Test pattern. COMET TV is attempted in Box 1 on startup, but is a **candidate** rather than a confirmed operational source; check decoded frames and audio on the operator's network before describing it as live.
