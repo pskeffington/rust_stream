@@ -6,19 +6,24 @@ The optional GStreamer backend produces 640×360 RGBA video at up to 15 fps. Fou
 
 ## Run on macOS
 
-The demo requires Rust **1.95 or newer** (eframe 0.37). The core declares Rust 1.85; its minimum toolchain has not been separately tested.
+Use Rust 1.95+ and GStreamer. This repository contains multiple executables; launch the native video UI explicitly rather than an older installed app.
 
 ```sh
 brew install gstreamer
-# Four network-free moving patterns, decoded by GStreamer:
+git fetch origin main
+git pull --ff-only origin main
+sh scripts/launch-native-ui.sh
+```
+
+The script builds and executes `target/debug/rust-stream-demo` from the current checkout, and refuses to launch when the checkout is known to be behind `origin/main`. It does not discard local modifications. Resolve divergent branches or uncommitted edits manually; do not use `git reset --hard` merely to update the UI.
+
+The native player starts on **NEWS**. Use **+ STREAM** to enter a human-readable station name and trusted public HTTPS HLS URL, select Box 1–4, and press **PLAY**. Saved custom streams are kept in the user's local configuration directory and loaded on future launches. Alternatively set `RUST_STREAM_HLS_NAME_1` and `RUST_STREAM_HLS_URL_1` through `_4` in the launch environment. **FREE TV** selects COMET TV as a candidate preset; availability and live decoding are not guaranteed. For four network-free patterns, run:
+
+```sh
 RUST_STREAM_TEST_PATTERN=1 cargo run -p rust-stream-demo --features native-video
 ```
 
-For an **authorized, trusted public HTTPS HLS source**, set `RUST_STREAM_HLS_URL_1` through `_4` before launching. The legacy `RUST_STREAM_HLS_URL` is a fallback for channel 1. Open **SOURCES**, choose a source for each slot and press **Apply / Restart**. **Remove** stops and clears one slot; **STOP ALL** stops all four. Click a video to focus it and **GRID** to return. There are no bundled or automatically connected broadcaster endpoints.
-
-GStreamer retrieves playlists, segments and redirects internally. Connection-time DNS, peer-address and nested-request enforcement is **not implemented**. Use only publisher-controlled endpoints and child resources you trust; do not enable arbitrary user URLs, credentials or internal cameras. See [native playback and its trust boundary](docs/NATIVE_VIDEO.md).
-
-Category tabs currently share the configured wall. Provider integrations, category catalogs, remembered TV channel selection, audio and Raspberry Pi validation remain pending.
+GStreamer handles playlists, segments and redirects internally; full connection-time DNS, peer-address and nested HLS request enforcement remains pending. Only use streams and child resources the operator trusts and is authorized to access. Do not put credentials in stream URLs. See [native playback](docs/NATIVE_VIDEO.md) and [source policy](docs/DIRECT_FEED_CATALOG.md).
 
 ## Verification
 
@@ -38,7 +43,7 @@ CI tests both the default workspace and a native feature build on Ubuntu with GS
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md)
+- [Repository index](docs/INDEX.md)\n- [Architecture](docs/ARCHITECTURE.md)
 - [Native video, local setup and validation](docs/NATIVE_VIDEO.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Feed catalog and approval status](docs/DIRECT_FEED_CATALOG.md)
