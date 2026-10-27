@@ -5,10 +5,17 @@ use rust_stream_core::{Quad, Slot};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Section { Security, News, Traffic, FreeTv, Custom }
-struct Viewer { quad: Quad, section: Section, news_choice: usize }
+const FREE_TV: [(&str, &str); 5] = [
+    ("Pluto TV", "https://www.pluto.tv/"),
+    ("Plex Live TV", "https://www.plex.tv/watch-free-tv/"),
+    ("Roku Channel", "https://therokuchannel.roku.com/"),
+    ("Tubi", "https://tubitv.com/"),
+    ("Samsung TV+", "https://www.samsungtvplus.com/"),
+];
+struct Viewer { quad: Quad, section: Section, news_choice: usize, free_tv_choice: usize }
 
 impl Default for Viewer {
-    fn default() -> Self { Self { quad: Quad::default(), section: Section::Security, news_choice: 0 } }
+    fn default() -> Self { Self { quad: Quad::default(), section: Section::Security, news_choice: 0, free_tv_choice: 0 } }
 }
 
 fn draw_slot(ui: &mut egui::Ui, slot: &Slot, size: Vec2, focused: bool) -> bool {
@@ -64,15 +71,32 @@ impl eframe::App for Viewer {
             ui.separator();
             match self.section {
                 Section::FreeTv => {
-                    ui.label("EXTERNAL FREE TV / NAVIGATION ONLY");
-                    for (name, url) in [
-                        ("Pluto TV", "https://www.pluto.tv/"),
-                        ("Plex Live TV", "https://www.plex.tv/watch-free-tv/"),
-                        ("Roku Channel", "https://therokuchannel.roku.com/"),
-                        ("Tubi", "https://tubitv.com/"),
-                        ("Samsung TV+", "https://www.samsungtvplus.com/"),
-                    ] {
-                        ui.horizontal(|ui| { ui.label(name); ui.hyperlink_to("OPEN", url); });
+                    // A native player surface; web-service DRM/embedding support is not yet available.
+                    // Never pretend a provider webpage is a playable HLS stream.
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_id_salt("free-tv-service")
+                            .selected_text(FREE_TV[self.free_tv_choice].0)
+                            .show_ui(ui, |ui| {
+                                for (index, (name, _)) in FREE_TV.iter().enumerate() {
+                                    ui.selectable_value(&mut self.free_tv_choice, index, *name);
+                                }
+                            });
+                        ui.hyperlink_to("OPEN OFFICIAL SITE", FREE_TV[self.free_tv_choice].1);
+                    });
+                    let available = ui.available_size();
+                    let (rect, _) = ui.allocate_exact_size(available, egui::Sense::hover());
+                    let painter = ui.painter_at(rect);
+                    painter.rect_filled(rect, 3.0, Color32::from_rgb(11, 25, 19));
+                    painter.rect_stroke(rect, 3.0,
+                        Stroke::new(1.0, Color32::from_rgb(75, 119, 80)), StrokeKind::Inside);
+                    if rect.width() >= 100.0 && rect.height() >= 56.0 {
+                        painter.text(rect.center() + Vec2::new(0.0, -12.0),
+                            Align2::CENTER_CENTER, FREE_TV[self.free_tv_choice].0,
+                            FontId::monospace(15.0), Color32::from_rgb(145, 230, 154));
+                        painter.text(rect.center() + Vec2::new(0.0, 16.0),
+                            Align2::CENTER_CENTER, "NATIVE PLAYBACK NOT YET AVAILABLE",
+                            FontId::monospace(if rect.width() < 360.0 { 9.0 } else { 11.0 }),
+                            Color32::from_rgb(100, 150, 116));
                     }
                 }
                 Section::News => {
