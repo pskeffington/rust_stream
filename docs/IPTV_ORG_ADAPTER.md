@@ -28,3 +28,17 @@ The `rust_stream_core::import_iptv_org` function accepts downloaded JSON snapsho
 6. Add offline fixtures, resilient updater tests, macOS and Raspberry Pi decode tests.
 
 The API is discovery metadata, not a functioning video player and not an authorization service.
+
+## Running the updater
+
+```bash
+cargo run -p rust-stream-catalog -- --cache-dir ./data/iptv-org
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+```
+
+The updater fetches only the two fixed official HTTPS JSON endpoints, disallows redirects, enforces a 20-second request budget with an 8-second connection timeout, and caps channel/stream downloads at 12/24 MiB respectively. It validates both documents before writing cached snapshots. A failed fetch does not intentionally replace the existing cache. Per-file writes are atomic, but the two-file pair is **not yet a transactional snapshot**; a process interruption between writes can leave mismatched generations. This must be resolved before using the cache as an operational catalog.
+
+**Important:** no stream URL is fetched by the updater, and no playback is enabled or approved. The importer currently allows zero hostnames unless the operator supplies an explicit host policy; the zero-approved result is expected. The updater is not a live feed validator.
+
+Remaining gates: versioned two-file snapshots, a reviewable hostname approval registry, DNS/redirect/segment safety on actual playback, decoded-frame verification, rights review, and native HUD integration. No macOS, Raspberry Pi or live media tests have been run as part of this remote edit.
