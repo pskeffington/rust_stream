@@ -12,3 +12,5 @@
 - [ ] P5 Rust-Boy native embedding, cross compilation and deployment hardening.
 
 Acceptance: one broken stream must not hang other tiles; stale frames never overwrite new ones; bounded backoff; policy retained over reconnects, DNS changes and redirects; all four tiles gracefully degrade; no scrolling on compact HUDs; use no external media player.
+
+- [ ] NEWS policy: direct authorized LIVE VIDEO only; no RSS/Atom/headline pipelines, article rendering, or web embeds. See [NEWS_VIDEO_POLICY](NEWS_VIDEO_POLICY.md).
