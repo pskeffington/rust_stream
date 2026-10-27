@@ -60,6 +60,38 @@ impl NativePreview {
             Err(_) => self.status = "INVALID PUBLIC HTTPS HLS CONFIGURATION".into(),
         }
     }
+    /// A curated candidate remains offline unless this exact ID is approved by
+    /// the operator. The approval is a trust assertion, not a network sandbox.
+    pub fn start_candidate(&mut self, index: usize) {
+        use rust_stream_core::LIVE_NEWS_CANDIDATES;
+        self.stop();
+        let Some(candidate) = LIVE_NEWS_CANDIDATES.get(index) else {
+            self.status = "UNKNOWN CANDIDATE".into();
+            return;
+        };
+        let approved = std::env::var("RUST_STREAM_APPROVED_FEED_IDS")
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .any(|id| id == candidate.id);
+        self.label = candidate.name.into();
+        if !approved {
+            self.status = "NOT APPROVED: SEE SOURCES".into();
+            return;
+        }
+        let source = Source {
+            id: candidate.id.into(),
+            label: candidate.name.into(),
+            endpoint: candidate.endpoint.into(),
+            kind: SourceKind::Hls,
+            scope: SourceScope::Public,
+            enabled: true,
+        };
+        match GstBackend::trusted_hls(source.clone()) {
+            Ok(backend) => self.player.start(Arc::new(backend), source),
+            Err(_) => self.status = "INVALID CANDIDATE HLS CONFIGURATION".into(),
+        }
+    }
     pub fn stop(&mut self) {
         self.player.stop();
         self.texture = None;
