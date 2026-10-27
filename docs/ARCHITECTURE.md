@@ -1,7 +1,7 @@
 # Architecture and Rust-Boy integration
 
 - `rust-stream-core`: typed source definitions and catalog policy, quad/focus state, bounded RGBA frames, backend/session traits and reusable `Playback` workers. No egui dependency. Optional `native-video` adds GStreamer.
-- `rust-stream-demo`: eframe 0.37 native wall with one independent player and texture per slot, source controls, focus/grid and offline status. Default builds require no media libraries. Category tabs share the operator-configured wall pending catalog integration.
+- `rust-stream-demo`: eframe 0.37 native wall with one independent player and texture per slot, source controls, focus/grid and offline status. Default builds require no media libraries. The desktop UI starts in NEWS, offers a direct named HTTPS HLS editor, and stores four user-local custom presets; category changes currently reassign those four active slots.
 - `rust-stream-catalog`: candidate discovery/import tooling. Discovery and metadata validation do not prove decoding or authorization.
 
 Operator-approved configuration → source-bound backend → per-slot worker → replaceable RGBA mailbox → egui texture → wall/focus surface.
