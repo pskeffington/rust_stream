@@ -165,7 +165,8 @@ impl Viewer {
         match self.section {
             Section::News => {
                 for i in 0..4 {
-                    self.choices[i] = if configured_url(i).is_some() { i + 2 } else { 0 };
+                    self.choices[i] = if configured_url(i).is_some() { i + 2 }
+                        else if !self.custom_urls[i].is_empty() { 6 } else { 0 };
                     self.apply_source(i);
                 }
             }
@@ -173,7 +174,13 @@ impl Viewer {
                 self.choices = [1, 0, 0, 0];
                 for i in 0..4 { self.apply_source(i); }
             }
-            Section::Security | Section::Traffic | Section::Custom => {
+            Section::Custom => {
+                for i in 0..4 {
+                    self.choices[i] = if !self.custom_urls[i].is_empty() { 6 } else { 0 };
+                    self.apply_source(i);
+                }
+            }
+            Section::Security | Section::Traffic => {
                 for i in 0..4 {
                     self.choices[i] = 0;
                     self.apply_source(i);
@@ -207,7 +214,10 @@ impl Viewer {
                             ui.selectable_value(&mut self.choices[i], n, configured_name(n - 2));
                         });
                     } else {
-                        ui.selectable_value(&mut self.choices[i], n, *label);
+                        ui.selectable_value(&mut self.choices[i], n,
+                            if n == 6 && !self.custom_urls[i].is_empty() {
+                                self.custom_names[i].as_str()
+                            } else { *label });
                     }
                 }
             });
