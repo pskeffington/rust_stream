@@ -1,14 +1,19 @@
-//! Quad-layout shell only. This demo never opens a network connection.
-//! The production media adapter will provide frame textures through rust-stream-core.
+//! Compact media shell. Native video is explicit opt-in via feature and environment.
 use eframe::egui::{self, Align2, Color32, FontId, Sense, Stroke, StrokeKind, Vec2};
 use rust_stream_core::{FreeTvPlayer, FreeTvService, PlayerStatus, Quad, Slot};
+#[cfg(feature = "native-video")]
+mod native_preview;
+#[cfg(feature = "native-video")]
+use native_preview::NativePreview;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Section { Security, News, Traffic, FreeTv, Custom }
-struct Viewer { quad: Quad, section: Section, news_choice: usize, free_tv: FreeTvPlayer }
+struct Viewer { quad: Quad, section: Section, news_choice: usize, free_tv: FreeTvPlayer,
+    #[cfg(feature = "native-video")] preview: NativePreview,
+}
 
 impl Default for Viewer {
-    fn default() -> Self { Self { quad: Quad::default(), section: Section::Security, news_choice: 0, free_tv: FreeTvPlayer::default() } }
+    fn default() -> Self { Self { quad: Quad::default(), section: Section::Security, news_choice: 0, free_tv: FreeTvPlayer::default(), #[cfg(feature = "native-video")] preview: NativePreview::default() } }
 }
 
 fn draw_slot(ui: &mut egui::Ui, slot: &Slot, size: Vec2, focused: bool) -> bool {
@@ -99,6 +104,15 @@ impl eframe::App for Viewer {
                     }
                 }
                 Section::News => {
+                    #[cfg(feature = "native-video")]
+                    {
+                        ui.horizontal_wrapped(|ui| {
+                            if ui.button("PLAY CONFIGURED HLS").clicked() { self.preview.start(); }
+                            if ui.button("STOP").clicked() { self.preview.stop(); }
+                        });
+                        self.preview.show(ui);
+                        return;
+                    }
                     const CHANNELS: [&str; 4] = ["AL JAZEERA", "DW ENGLISH", "BOSTON 25", "WCVB 5"];
                     ui.horizontal_wrapped(|ui| {
                         for (index, name) in CHANNELS.iter().enumerate() {
