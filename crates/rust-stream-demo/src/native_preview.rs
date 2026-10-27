@@ -32,6 +32,7 @@ impl NativePreview {
     }
     pub fn start_url(&mut self, label: &str, endpoint: &str) {
         self.stop();
+        self.label = label.to_owned();
         let source = Source {
             id: format!("selected-hls-{}", self.id),
             label: label.to_owned(),
@@ -57,12 +58,15 @@ impl NativePreview {
                 Err(std::env::VarError::NotPresent)
             }
         });
-        self.stop();
         let Ok(endpoint) = endpoint else {
+            self.stop();
             self.status = format!("Set {variable}");
             return;
         };
-        self.start_url(&format!("CONFIGURED HLS {}", channel + 1), &endpoint);
+        let label = std::env::var(format!("RUST_STREAM_HLS_NAME_{}", channel + 1))
+            .ok().filter(|name| !name.trim().is_empty())
+            .unwrap_or_else(|| format!("User feed {}", channel + 1));
+        self.start_url(&label, &endpoint);
     }
     pub fn stop(&mut self) {
         self.player.stop();
