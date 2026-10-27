@@ -30,7 +30,7 @@ The header provides a Box 1 quick picker and a STREAMS window for managing all f
 
 ## Inline named stream input
 
-Click **+ STREAM** in the player's main toolbar. Select Box 1-4, provide a human-readable **Name**, enter a trusted HTTPS HLS stream URL and click **PLAY** (or press Enter in the URL field). The player uses the supplied name for the video overlay and source selector. Clicking a video to focus it before opening + STREAM preselects that box. Custom entries remain in memory for the current application session only; there is no disk persistence or public URL discovery. A successful click is not proof of a decoded stream: inspect the tile status and frames.
+Click **+ STREAM** in the player's main toolbar. Select Box 1-4, provide a human-readable **Name**, enter a trusted HTTPS HLS stream URL and click **PLAY** (or press Enter in the URL field). The player uses the supplied name for the video overlay and source selector. Clicking a video to focus it before opening + STREAM preselects that box. Custom names and URLs are saved locally in `~/.config/rust-stream/streams.json` (or `$XDG_CONFIG_HOME/rust-stream/streams.json`), with restrictive file permissions on Unix. PLAY saves the entry and starts playback. STREAMS offers Save + Play and Clear. Saved entries are restored on launch; NEWS prefers an explicitly configured environment feed for each box, then its saved custom stream. The CUSTOM tab starts saved custom streams. There is no public URL discovery. A successful click is not proof of a decoded stream: inspect the tile status and frames.
 
 ## Primary feeds and custom HLS selection
 
