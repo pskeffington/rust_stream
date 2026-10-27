@@ -1,21 +1,14 @@
 //! Quad-layout shell only. This demo never opens a network connection.
 //! The production media adapter will provide frame textures through rust-stream-core.
 use eframe::egui::{self, Align2, Color32, FontId, Sense, Stroke, StrokeKind, Vec2};
-use rust_stream_core::{Quad, Slot};
+use rust_stream_core::{FreeTvPlayer, FreeTvService, PlayerStatus, Quad, Slot};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Section { Security, News, Traffic, FreeTv, Custom }
-const FREE_TV: [(&str, &str); 5] = [
-    ("Pluto TV", "https://www.pluto.tv/"),
-    ("Plex Live TV", "https://www.plex.tv/watch-free-tv/"),
-    ("Roku Channel", "https://therokuchannel.roku.com/"),
-    ("Tubi", "https://tubitv.com/"),
-    ("Samsung TV+", "https://www.samsungtvplus.com/"),
-];
-struct Viewer { quad: Quad, section: Section, news_choice: usize, free_tv_choice: usize }
+struct Viewer { quad: Quad, section: Section, news_choice: usize, free_tv: FreeTvPlayer }
 
 impl Default for Viewer {
-    fn default() -> Self { Self { quad: Quad::default(), section: Section::Security, news_choice: 0, free_tv_choice: 0 } }
+    fn default() -> Self { Self { quad: Quad::default(), section: Section::Security, news_choice: 0, free_tv: FreeTvPlayer::default() } }
 }
 
 fn draw_slot(ui: &mut egui::Ui, slot: &Slot, size: Vec2, focused: bool) -> bool {
@@ -75,13 +68,15 @@ impl eframe::App for Viewer {
                     // Never pretend a provider webpage is a playable HLS stream.
                     ui.horizontal(|ui| {
                         egui::ComboBox::from_id_salt("free-tv-service")
-                            .selected_text(FREE_TV[self.free_tv_choice].0)
+                            .selected_text(self.free_tv.service().name())
                             .show_ui(ui, |ui| {
-                                for (index, (name, _)) in FREE_TV.iter().enumerate() {
-                                    ui.selectable_value(&mut self.free_tv_choice, index, *name);
+                                for service in FreeTvService::ALL {
+                                    if ui.selectable_label(self.free_tv.service() == service, service.name()).clicked() {
+                                        self.free_tv.select(service);
+                                    }
                                 }
                             });
-                        ui.hyperlink_to("OPEN OFFICIAL SITE", FREE_TV[self.free_tv_choice].1);
+                        ui.hyperlink_to("OPEN OFFICIAL SITE", self.free_tv.service().official_site());
                     });
                     let available = ui.available_size();
                     let (rect, _) = ui.allocate_exact_size(available, egui::Sense::hover());
@@ -91,10 +86,14 @@ impl eframe::App for Viewer {
                         Stroke::new(1.0, Color32::from_rgb(75, 119, 80)), StrokeKind::Inside);
                     if rect.width() >= 100.0 && rect.height() >= 56.0 {
                         painter.text(rect.center() + Vec2::new(0.0, -12.0),
-                            Align2::CENTER_CENTER, FREE_TV[self.free_tv_choice].0,
+                            Align2::CENTER_CENTER, self.free_tv.service().name(),
                             FontId::monospace(15.0), Color32::from_rgb(145, 230, 154));
                         painter.text(rect.center() + Vec2::new(0.0, 16.0),
-                            Align2::CENTER_CENTER, "NATIVE PLAYBACK NOT YET AVAILABLE",
+                            Align2::CENTER_CENTER, match self.free_tv.status() {
+                                PlayerStatus::Unconfigured => "NO AUTHORIZED NATIVE STREAM",
+                                PlayerStatus::Ready => "SOURCE READY / DECODER PENDING",
+                                _ => "NATIVE DECODER NOT CONNECTED",
+                            },
                             FontId::monospace(if rect.width() < 360.0 { 9.0 } else { 11.0 }),
                             Color32::from_rgb(100, 150, 116));
                     }
