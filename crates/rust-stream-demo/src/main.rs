@@ -31,6 +31,8 @@ struct Viewer {
     editor_open: bool,
     #[cfg(feature = "native-video")]
     editor_slot: usize,
+    #[cfg(feature = "native-video")]
+    save_status: String,
 }
 impl Default for Viewer {
     fn default() -> Self {
@@ -52,7 +54,14 @@ impl Default for Viewer {
             editor_open: false,
             #[cfg(feature = "native-video")]
             editor_slot: 0,
+            #[cfg(feature = "native-video")]
+            save_status: String::new(),
         };
+        #[cfg(feature = "native-video")]
+        if let Some(saved) = load_saved() {
+            viewer.custom_names = saved.names;
+            viewer.custom_urls = saved.urls;
+        }
         #[cfg(feature = "native-video")]
         if std::env::var("RUST_STREAM_TEST_PATTERN").as_deref() == Ok("1") {
             for (i, preview) in viewer.previews.iter_mut().enumerate() {
@@ -87,8 +96,70 @@ fn configured_url(channel: usize) -> Option<String> {
                  else { Err(std::env::VarError::NotPresent) })
         .ok().filter(|url| url.starts_with("https://") && !url.trim().is_empty())
 }
+#[cfg(feature = "native-video")]
+#[derive(serde::Serialize, serde::Deserialize)]
+struct SavedStreams {
+    names: [String; 4],
+    urls: [String; 4],
+}
+#[cfg(feature = "native-video")]
+fn saved_path() -> Option<std::path::PathBuf> {
+    let root = std::env::var_os("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME")
+            .map(|h| std::path::PathBuf::from(h).join(".config")))?;
+    Some(root.join("rust-stream").join("streams.json"))
+}
+#[cfg(feature = "native-video")]
+fn load_saved() -> Option<SavedStreams> {
+    let path = saved_path()?;
+    let bytes = std::fs::read(path).ok()?;
+    if bytes.len() > 32_768 { return None; }
+    let saved: SavedStreams = serde_json::from_slice(&bytes).ok()?;
+    if saved.names.iter().any(|s| s.len() > 100) ||
+       saved.urls.iter().any(|s| s.len() > 2048) { return None; }
+    Some(saved)
+}
+#[cfg(feature = "native-video")]
+fn save_streams(names: &[String; 4], urls: &[String; 4]) -> std::io::Result<()> {
+    let path = saved_path().ok_or_else(|| std::io::Error::other("No user config directory"))?;
+    let dir = path.parent().ok_or_else(|| std::io::Error::other("Invalid config path"))?;
+    std::fs::create_dir_all(dir)?;
+    let data = serde_json::to_vec_pretty(&SavedStreams {
+        names: names.clone(), urls: urls.clone(),
+    }).map_err(std::io::Error::other)?;
+    let tmp = dir.join("streams.json.tmp");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut file = std::fs::OpenOptions::new().write(true).create(true)
+            .truncate(true).mode(0o600).open(&tmp)?;
+        std::io::Write::write_all(&mut file, &data)?;
+        file.sync_all()?;
+    }
+    #[cfg(not(unix))]
+    std::fs::write(&tmp, &data)?;
+    std::fs::rename(tmp, path)
+}
 const ACCENT: Color32 = Color32::from_rgb(145, 230, 154);
 impl Viewer {
+    #[cfg(feature = "native-video")]
+    fn persist(&mut self) {
+        self.save_status = match save_streams(&self.custom_names, &self.custom_urls) {
+            Ok(()) => "Saved locally".to_owned(),
+            Err(_) => "Unable to save: check config directory permissions".to_owned(),
+        };
+    }
+    #[cfg(feature = "native-video")]
+    fn play_custom(&mut self, i: usize) {
+        if self.custom_names[i].trim().is_empty() || self.custom_urls[i].trim().is_empty() {
+            self.save_status = "Enter a name and HTTPS HLS URL".to_owned();
+            return;
+        }
+        self.choices[i] = 6;
+        self.apply_source(i);
+        self.persist();
+    }
     #[cfg(feature = "native-video")]
     fn load_section(&mut self) {
         match self.section {
@@ -166,14 +237,22 @@ impl Viewer {
                             ui.text_edit_singleline(&mut self.custom_names[i]);
                             ui.label("HTTPS HLS URL");
                             ui.text_edit_singleline(&mut self.custom_urls[i]);
-                            if ui.button("Load").clicked() {
+                            if ui.button("Save + Play").clicked() {
+                                self.play_custom(i);
+                            }
+                            if ui.button("Clear").clicked() {
+                                self.custom_urls[i].clear();
+                                self.custom_names[i] = format!("My stream {}", i + 1);
+                                self.choices[i] = 0;
                                 self.apply_source(i);
+                                self.persist();
                             }
                         });
                     }
                 }
                 ui.separator();
-                ui.small("Custom URLs are session-only and must be trusted/authorized HTTPS HLS manifests.");
+                ui.small("Custom feeds are stored locally in your user configuration directory. Use trusted HTTPS HLS URLs only.");
+                if !self.save_status.is_empty() { ui.small(&self.save_status); }
                 ui.small("Named feeds: RUST_STREAM_HLS_NAME_1..4 and RUST_STREAM_HLS_URL_1..4.");
                 ui.small("A validated playlist is not proof of live video or permission to rebroadcast.");
             });
@@ -202,13 +281,13 @@ impl Viewer {
             if load {
                 let i = self.editor_slot;
                 if !self.custom_names[i].trim().is_empty() && !self.custom_urls[i].trim().is_empty() {
-                    self.choices[i] = 6;
-                    self.apply_source(i);
+                    self.play_custom(i);
                 }
             }
             if ui.small_button("X").clicked() { self.editor_open = false; }
         });
-        ui.small("Trusted HTTPS HLS only. Playback starts in the selected box; unsupported or invalid links stay offline.");
+        ui.small("Trusted HTTPS HLS only. PLAY saves the named feed locally and starts it in the selected box.");
+        if !self.save_status.is_empty() { ui.small(&self.save_status); }
     }
     fn draw_slot(&mut self, ui: &mut egui::Ui, index: usize, size: Vec2) -> bool {
         let (rect, response) = ui.allocate_exact_size(size, Sense::click());
@@ -344,7 +423,7 @@ impl eframe::App for Viewer {
             self.inline_stream_editor(ui);
             #[cfg(feature = "native-video")]
             if self.section == Section::News && self.choices.iter().all(|choice| *choice == 0) {
-                ui.small("No news video configured. Add named HTTPS HLS feeds in your launch environment, or use STREAMS to load a custom feed.");
+                ui.small("No news feeds configured. Use + STREAM to name and save an HTTPS HLS feed.");
             }
             self.wall(ui);
         });
