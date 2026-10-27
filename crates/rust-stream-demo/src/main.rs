@@ -23,6 +23,8 @@ struct Viewer {
     settings: bool,
     #[cfg(feature = "native-video")]
     choices: [usize; 4],
+    #[cfg(feature = "native-video")]
+    custom_urls: [String; 4],
 }
 impl Default for Viewer {
     fn default() -> Self {
@@ -35,7 +37,9 @@ impl Default for Viewer {
             #[cfg(feature = "native-video")]
             settings: false,
             #[cfg(feature = "native-video")]
-            choices: [0; 4],
+            choices: [1, 0, 0, 0],
+            #[cfg(feature = "native-video")]
+            custom_urls: std::array::from_fn(|_| String::new()),
         };
         #[cfg(feature = "native-video")]
         if std::env::var("RUST_STREAM_TEST_PATTERN").as_deref() == Ok("1") {
@@ -44,55 +48,80 @@ impl Default for Viewer {
                 viewer.choices[i] = 1;
             }
         }
+        #[cfg(feature = "native-video")]
+        if std::env::var("RUST_STREAM_TEST_PATTERN").as_deref() != Ok("1") {
+            viewer.apply_source(0);
+        }
         viewer
     }
 }
+#[cfg(feature = "native-video")]
+const COMET_HLS: &str = "https://fast-channels.sinclairstoryline.com/COMET/index.m3u8";
+#[cfg(feature = "native-video")]
+const SOURCES: [&str; 8] = [
+    "Off", "COMET TV", "Configured 1", "Configured 2",
+    "Configured 3", "Configured 4", "Custom HLS", "Test pattern",
+];
 const ACCENT: Color32 = Color32::from_rgb(145, 230, 154);
 impl Viewer {
     #[cfg(feature = "native-video")]
+    fn apply_source(&mut self, i: usize) {
+        match self.choices[i] {
+            0 => self.previews[i].stop(),
+            1 => self.previews[i].start_url("COMET TV", COMET_HLS),
+            2..=5 => self.previews[i].start_hls(self.choices[i] - 2),
+            6 => self.previews[i].start_url("CUSTOM HLS", &self.custom_urls[i]),
+            7 => self.previews[i].start_test(),
+            _ => self.previews[i].stop(),
+        }
+    }
+    #[cfg(feature = "native-video")]
+    fn source_picker(&mut self, ui: &mut egui::Ui, i: usize) {
+        let previous = self.choices[i];
+        egui::ComboBox::from_id_salt(("source", i))
+            .width(140.0)
+            .selected_text(SOURCES[self.choices[i]])
+            .show_ui(ui, |ui| {
+                for (n, label) in SOURCES.iter().enumerate() {
+                    ui.selectable_value(&mut self.choices[i], n, *label);
+                }
+            });
+        if previous != self.choices[i] {
+            self.apply_source(i);
+        }
+    }
+    #[cfg(feature = "native-video")]
     fn settings(&mut self, ctx: &egui::Context) {
-        egui::Window::new("Sources")
-            .open(&mut self.settings)
-            .resizable(false)
+        let mut open = self.settings;
+        egui::Window::new("Streams")
+            .open(&mut open)
+            .resizable(true)
             .show(ctx, |ui| {
-                ui.label("Configure each slot, then press Apply / Restart.");
-                ui.label(
-                    "HLS sources must be trusted and authorized, including all child resources.",
-                );
-                const SOURCES: [&str; 6] = [
-                    "No source",
-                    "Synthetic video",
-                    "Configured HLS 1",
-                    "Configured HLS 2",
-                    "Configured HLS 3",
-                    "Configured HLS 4",
-                ];
+                ui.label("Choose a primary feed for each box. Changes load immediately.");
                 for i in 0..4 {
                     ui.horizontal(|ui| {
-                        ui.label(format!("{}", i + 1));
-                        egui::ComboBox::from_id_salt(("source", i))
-                            .selected_text(SOURCES[self.choices[i]])
-                            .show_ui(ui, |ui| {
-                                for (n, label) in SOURCES.iter().enumerate() {
-                                    ui.selectable_value(&mut self.choices[i], n, *label);
-                                }
-                            });
-                        if ui.button("Apply / Restart").clicked() {
-                            match self.choices[i] {
-                                0 => self.previews[i].stop(),
-                                1 => self.previews[i].start_test(),
-                                n => self.previews[i].start_hls(n - 2),
-                            }
-                        }
-                        if ui.button("Remove").clicked() {
-                            self.previews[i].stop();
-                            self.choices[i] = 0;
+                        ui.label(format!("BOX {}", i + 1));
+                        self.source_picker(ui, i);
+                        if ui.small_button("Restart").clicked() {
+                            self.apply_source(i);
                         }
                     });
+                    if self.choices[i] == 6 {
+                        ui.horizontal(|ui| {
+                            ui.label("HTTPS HLS URL");
+                            ui.text_edit_singleline(&mut self.custom_urls[i]);
+                            if ui.button("Load").clicked() {
+                                self.apply_source(i);
+                            }
+                        });
+                    }
                 }
-                ui.label("Set RUST_STREAM_HLS_URL_1 through _4 before launch.");
-                ui.label("DNS, redirect and nested HLS request enforcement is still pending.");
+                ui.separator();
+                ui.small("Custom URLs are session-only and must be trusted/authorized HTTPS HLS manifests.");
+                ui.small("Configured 1-4 use RUST_STREAM_HLS_URL_1 through _4.");
+                ui.small("A validated playlist is not proof of live video or permission to rebroadcast.");
             });
+        self.settings = open;
     }
     fn draw_slot(&mut self, ui: &mut egui::Ui, index: usize, size: Vec2) -> bool {
         let (rect, response) = ui.allocate_exact_size(size, Sense::click());
@@ -153,7 +182,9 @@ impl Viewer {
             }
             #[cfg(feature = "native-video")]
             {
-                if ui.button("SOURCES").clicked() {
+                ui.label("PRIMARY:");
+                self.source_picker(ui, 0);
+                if ui.button("STREAMS").clicked() {
                     self.settings = true;
                 }
                 if ui.button("STOP ALL").clicked() {
