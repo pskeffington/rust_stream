@@ -21,6 +21,14 @@ pub struct LiveVideoCandidate {
 /// or licensed for packaging. Disabled by default and never auto-played.
 pub const LIVE_NEWS_CANDIDATES: &[LiveVideoCandidate] = &[
     LiveVideoCandidate {
+        id: "aljazeera-english-candidate",
+        name: "Al Jazeera English",
+        publisher: "Al Jazeera Media Network",
+        endpoint: "https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8",
+        evidence: "https://www.aljazeera.com/video/live/",
+        status: CandidateStatus::Unverified,
+    },
+    LiveVideoCandidate {
         id: "dw-english-candidate",
         name: "DW English",
         publisher: "Deutsche Welle",

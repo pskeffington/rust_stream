@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "collection": "news",
+  "auto_enable": false,
+  "entries": [
+    {"id":"aljazeera-english","station":"Al Jazeera English","location":"International","publisher_page":"https://www.aljazeera.com/video/live/","direct_hls_candidate":"https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8","status":"unverified_direct_candidate"},
+    {"id":"boston25","station":"Boston 25 / WFXT","location":"Boston, MA","publisher_page":"https://www.boston25news.com/video/","direct_hls_candidate":null,"status":"publisher_player_only"},
+    {"id":"wcvb5","station":"WCVB NewsCenter 5","location":"Boston, MA","publisher_page":"https://www.wcvb.com/very-local","direct_hls_candidate":null,"status":"publisher_player_only"}
+  ]
+}
