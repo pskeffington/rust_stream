@@ -1,15 +1,16 @@
-# Free TV navigation (external services)
+# Free TV selection and playback contract
 
-These links are **navigation only**, available under FREE TV LINKS in the standalone Rust Stream demo. They are not native media sources, HLS manifests, network-validated feeds, or authorized relay endpoints.
+The Free TV page now defaults to Pluto TV with a single bounded viewer rectangle. A service selector changes the selected provider among Pluto TV, Plex, Roku Channel, Tubi and Samsung TV+. The surface remains inside Rust-Boy-style screen dimensions.
 
-| Site | Official viewing page | Service |
-|---|---|---|
-| Pluto TV | https://www.pluto.tv/ | Free live TV channels |
-| Plex Live TV | https://www.plex.tv/watch-free-tv/ | Free live television channels |
-| The Roku Channel | https://therokuchannel.roku.com/ | Free live TV and shows |
-| Tubi | https://tubitv.com/ | Free TV, movies and live channels |
-| Samsung TV Plus | https://www.samsungtvplus.com/ | Free live TV, browser support may vary by geography/device |
+**Current status:** Only the service selector and viewer placeholder are implemented. It does not play Pluto TV or any other service inside the app. The OPEN OFFICIAL SITE link remains available as an explicit separate action.
 
-These URLs may open in an external browser when selected. That is intentional for explicit **navigation**, but DOES NOT fulfill the goal of native streaming playback inside Rust-Boy. Do not scrape protected manifests, bypass DRM, or infer direct streams from these links.
+Pluto TV documents supported browsers and devices at https://pluto.tv/where-to-watch and https://cbsi.my.site.com/plutotv/s/article/PTV-Authorized-Pluto-TV-Platforms?language=en_US . These documents do not constitute an embeddable/redistributable native media SDK license. Do not scrape protected manifests or bypass DRM, client checks or publisher restrictions.
 
-Rust-Boy integration should mount this list under MEDIA > Free TV links, separate from Security / News / Traffic direct-video collections. No auto-loading, embedded site iframes or default connection attempts. Geographic and device restrictions apply.
+## Required for actual native playback
+
+1. Obtain a supported in-app playback integration or direct media authorization from the service.
+2. If using a browser-based embedded view, validate WebView compatibility, content-security embedding rules, cookies, DRM, fullscreen, touch, audio and region restrictions on target hardware.
+3. If using a direct HLS/DRM playback adapter, use an authorized manifest and compliant media/DRM path.
+4. Suspend previous provider when switching; do not leave hidden decoders running.
+5. Verify the 320x240, 480x320, 640x360 and 800x480 usable media rectangles with tests.
+6. No News RSS, YouTube, or publisher page pretending to be a native stream.
