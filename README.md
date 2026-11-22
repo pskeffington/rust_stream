@@ -43,11 +43,13 @@ CI tests both the default workspace and a native feature build on Ubuntu with GS
 
 ## Documentation
 
-- [Repository index](docs/INDEX.md)\n- [Architecture](docs/ARCHITECTURE.md)
+- [Repository index](docs/INDEX.md)
+- [Architecture](docs/ARCHITECTURE.md)
 - [Native video, local setup and validation](docs/NATIVE_VIDEO.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Feed catalog and approval status](docs/DIRECT_FEED_CATALOG.md)
 - [Rust-Boy integration](docs/RUST_BOY_MEDIA_INTEGRATION.md)
 - [Disabled example sources](examples/sources.example.json)
+- [Repository sweep decision-routing policy](https://github.com/pskeffington/Best-Practices-Git/blob/main/docs/repository-cleanup-and-reconciliation-policy.md)
 
 Project code and owned test footage use MIT. Check media plugin and codec licenses independently. An entry in a catalog or an HTTP response does not establish authorization or working video.
